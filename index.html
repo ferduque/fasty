@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fasty - Speed Reading</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Single unified view -->
+        <div class="main-view">
+            <!-- Left panel: Text input -->
+            <aside class="input-panel">
+                <header class="header">
+                    <h1 class="logo">f<span class="accent">a</span>sty</h1>
+                </header>
+
+                <div class="input-controls">
+                    <div class="settings-row">
+                        <div class="setting-group">
+                            <label for="wpm-select">WPM</label>
+                            <select id="wpm-select">
+                                <option value="250">250</option>
+                                <option value="300" selected>300</option>
+                                <option value="350">350</option>
+                                <option value="400">400</option>
+                                <option value="450">450</option>
+                                <option value="500">500</option>
+                                <option value="550">550</option>
+                                <option value="600">600</option>
+                                <option value="650">650</option>
+                                <option value="700">700</option>
+                                <option value="750">750</option>
+                                <option value="800">800</option>
+                                <option value="850">850</option>
+                                <option value="900">900</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-group">
+                            <label for="pause-select">Sentence pause</label>
+                            <select id="pause-select">
+                                <option value="0">Off</option>
+                                <option value="100">100ms</option>
+                                <option value="200" selected>200ms</option>
+                                <option value="300">300ms</option>
+                                <option value="400">400ms</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <textarea 
+                        id="text-input" 
+                        placeholder="Paste your text here..."
+                    ></textarea>
+                </div>
+            </aside>
+
+            <!-- Right panel: RSVP Reader -->
+            <main class="reader-panel">
+                <!-- RSVP Display -->
+                <div class="rsvp-container">
+                    <!-- Fixed guide lines -->
+                    <div class="guide-line-horizontal top"></div>
+                    <div class="guide-line-horizontal bottom"></div>
+                    <div class="guide-line-vertical top"></div>
+                    <div class="guide-line-vertical bottom"></div>
+                    
+                    <!-- Navigation arrow - Previous -->
+                    <button class="nav-arrow nav-prev" id="nav-prev" title="Previous word (←)">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 18l-6-6 6-6"/>
+                        </svg>
+                    </button>
+                    
+                    <!-- Word display -->
+                    <div class="word-display" id="word-display">
+                        <span class="word-before"></span><span class="word-focus"></span><span class="word-after"></span>
+                    </div>
+                    
+                    <!-- Navigation arrow - Next -->
+                    <button class="nav-arrow nav-next" id="nav-next" title="Next word (→)">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <!-- Status message - below guide lines -->
+                <div class="status-message" id="status-message">
+                    <span class="status-text">Paste text and press Space to start</span>
+                </div>
+
+                <!-- Bottom controls -->
+                <div class="reader-footer">
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                    
+                    <div class="reader-info">
+                        <span id="word-counter">0 / 0</span>
+                        <span class="hint"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> navigate</span>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
