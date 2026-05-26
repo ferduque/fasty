@@ -145,7 +145,7 @@ Keyed by `id` (UUID v4 generated at import).
     url?: string
   },
   binary: Blob | null,     // original file (PDF/EPUB); null for URL/TXT
-  cover: Blob | null,      // small cover image (~300px wide JPEG/PNG)
+  cover: Blob | null,      // 300×450 JPEG/PNG (matches library card 2:3 aspect)
   chapters: [              // ordered
     { title: string, text: string, startWordIndex: number }
   ],
@@ -229,6 +229,7 @@ ParsedDocument {
   1. Try `fetch(url)` directly. Inspect `Content-Type`:
      - `application/pdf` → pass to PDF parser.
      - `application/epub+zip` → pass to EPUB parser.
+     - Note: most cross-origin hosts will block this with CORS, so the direct branch only works for CORS-permissive servers (e.g. Project Gutenberg). For everything else we fall through to step 2.
   2. Otherwise treat as HTML article. Call `fetch('https://r.jina.ai/' + url)` which returns clean markdown.
   3. Parse markdown title (`# ...`) → `title`. Strip markdown to plain text → words.
   4. Virtual pages of ~300 words; single "Article" chapter.
@@ -243,7 +244,7 @@ ParsedDocument {
 
 ### 6.5 Generated cover tile
 - Used when no real cover exists (URL without og:image, TXT, PDF as fallback).
-- 300×400 canvas. Background color hashed from title. White serif text with first 1–3 words of title centered.
+- 300×450 canvas (matches library card 2:3 aspect). Background color hashed from title. White serif text with first 1–3 words of title centered.
 
 ---
 
