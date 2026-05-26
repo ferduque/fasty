@@ -6,6 +6,7 @@
 import { initTheme } from './src/theme.js';
 import { initImportModal, onDocumentImported } from './src/import-modal.js';
 import { initLibrary, refresh as refreshLibrary } from './src/library.js';
+import { initViewSwitcher, setView } from './src/view-switcher.js';
 
 class FastyApp {
     constructor() {
@@ -129,6 +130,7 @@ class FastyApp {
 
         this.populateChapterSelect();
         this.attachTopbarHandlers();
+        await setView('rsvp');
     }
 
     handleReaderClick() {
@@ -750,6 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLibrary();
     onDocumentImported(() => refreshLibrary());
     window.fastyApp = new FastyApp();
+    initViewSwitcher(window.fastyApp);
 
     import('./src/library.js').then(({ onLibraryDocumentSelected }) => {
         onLibraryDocumentSelected((id) => window.fastyApp.loadDocument(id));

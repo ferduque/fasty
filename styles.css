@@ -628,3 +628,11 @@ body {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 16px; color: var(--text-dim);
 }
+
+.app-container.view-faithful .rsvp-container,
+.app-container.view-faithful .status-message {
+  display: none;
+}
+.app-container.view-faithful .faithful-container { display: block; }
+.faithful-container { flex: 1; overflow: auto; padding: 24px; min-height: 0; }
+.faithful-container[hidden] { display: none; }
