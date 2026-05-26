@@ -67,6 +67,26 @@
                     <span class="theme-icon" id="theme-icon">☀</span>
                 </button>
 
+                <div class="reader-topbar" id="reader-topbar" hidden>
+                  <span class="doc-title" id="doc-title"></span>
+                  <span class="sep">·</span>
+                  <label class="topbar-control">
+                    Chapter
+                    <select id="chapter-select"></select>
+                  </label>
+                  <span class="sep">·</span>
+                  <label class="topbar-control">
+                    Page
+                    <input type="number" id="page-input" min="1" value="1" />
+                    <span class="muted">/ <span id="total-pages">1</span></span>
+                  </label>
+                  <span class="sep">·</span>
+                  <div class="view-toggle" id="view-toggle" role="tablist">
+                    <button data-view="rsvp" class="active" role="tab">RSVP</button>
+                    <button data-view="faithful" role="tab">Faithful</button>
+                  </div>
+                </div>
+
                 <!-- RSVP Display -->
                 <div class="rsvp-container">
                     <!-- Fixed guide lines -->
