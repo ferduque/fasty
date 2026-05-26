@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6">
+    <link rel="stylesheet" href="styles.css?v=7">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -76,21 +76,15 @@
 
                 <div class="reader-topbar" id="reader-topbar" hidden>
                   <span class="doc-title" id="doc-title"></span>
-                  <span class="sep">·</span>
-                  <label class="topbar-control">
-                    Chapter
-                    <select id="chapter-select"></select>
-                  </label>
-                  <span class="sep">·</span>
-                  <label class="topbar-control">
-                    Page
-                    <input type="number" id="page-input" min="1" value="1" />
-                    <span class="muted">/ <span id="total-pages">1</span></span>
-                  </label>
-                  <span class="sep">·</span>
-                  <div class="view-toggle" id="view-toggle" role="tablist">
-                    <button data-view="rsvp" class="active" role="tab">RSVP</button>
-                    <button data-view="faithful" role="tab">Faithful</button>
+                  <span class="muted" id="doc-page-info"></span>
+                  <button class="topbar-exit" id="exit-doc" title="Close document" aria-label="Close document">✕</button>
+                  <!-- Hidden DOM hooks kept so older code paths don't break (not visible). -->
+                  <select id="chapter-select" hidden></select>
+                  <input type="number" id="page-input" hidden value="1" />
+                  <span id="total-pages" hidden>1</span>
+                  <div class="view-toggle" id="view-toggle" hidden>
+                    <button data-view="rsvp" class="active">RSVP</button>
+                    <button data-view="faithful">Faithful</button>
                   </div>
                 </div>
 
@@ -182,6 +176,6 @@
       </div>
     </div>
 
-    <script type="module" src="app.js?v=6"></script>
+    <script type="module" src="app.js?v=7"></script>
 </body>
 </html>

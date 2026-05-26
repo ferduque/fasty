@@ -71,3 +71,10 @@ export async function setView(name) {
 }
 
 export function getView() { return currentView; }
+
+/** Resets the internal state — used when the document is closed. */
+export function forceResetView() {
+  if (mounted) { try { mounted.unmount(); } catch (_) {} }
+  mounted = null;
+  currentView = 'rsvp';
+}

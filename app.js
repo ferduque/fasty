@@ -53,13 +53,14 @@ class FastyApp {
         // Global keyboard listener
         document.addEventListener('keydown', (e) => this.onGlobalKeydown(e));
         
-        // Click on reader panel to start/pause (alternative to Space)
+        // Click on reader panel to start/pause (alternative to Space).
+        // Excludes nav arrows, the top bar (and its form controls), the theme
+        // toggle, the faithful container, and the floating selection button,
+        // so clicking those doesn't accidentally trigger play/pause.
         const readerPanel = document.querySelector('.reader-panel');
         readerPanel.addEventListener('click', (e) => {
-            // Don't trigger if clicking on nav arrows
-            if (!e.target.closest('.nav-arrow')) {
-                this.handleReaderClick();
-            }
+            if (e.target.closest('.nav-arrow, .reader-topbar, .theme-toggle, .faithful-container, .selection-read-btn')) return;
+            this.handleReaderClick();
         });
         
         // Navigation arrow click handlers
@@ -96,10 +97,9 @@ class FastyApp {
         if (!doc) return;
         this.currentDoc = doc;
         this._inSelectionMode = false;
-        const pageInputEl = document.getElementById('page-input');
-        if (pageInputEl) pageInputEl.disabled = false;
 
-        // Build paragraphs from chapters
+        // Build paragraphs from chapters (still used by selection-RSVP for
+        // resolving paragraph indices, even though we default to Faithful)
         this.paragraphs = doc.chapters.map((ch, index) => ({
             index,
             text: ch.text,
@@ -108,33 +108,30 @@ class FastyApp {
         }));
         this.words = this.paragraphs.flatMap(p => p.words);
 
-        // Restore progress
+        // Restore progress (page-level)
         const progress = await getProgress(docId);
         this.currentWordIndex = progress ? progress.currentWordIndex : 0;
         this.currentParagraphIndex = progress ? progress.currentChapterIndex : 0;
+        const currentPage = (doc.wordToPage[this.currentWordIndex] || 0) + 1;
 
-        // Show top bar with title
-        const topbar = document.getElementById('reader-topbar');
-        topbar.hidden = false;
+        // Top bar: minimal — just title + page X / Y + exit (✕).
+        document.getElementById('reader-topbar').hidden = false;
         document.getElementById('doc-title').textContent = doc.title;
-        document.getElementById('total-pages').textContent = doc.totalPages;
-        document.getElementById('page-input').max = doc.totalPages;
-        document.getElementById('page-input').value = (doc.wordToPage[this.currentWordIndex] || 0) + 1;
+        const pageInfo = document.getElementById('doc-page-info');
+        if (pageInfo) pageInfo.textContent = `Page ${currentPage} / ${doc.totalPages}`;
 
-        this.hasStarted = true;
-        this.isPaused = true;
-        this.elements.wordDisplay.classList.add('visible');
-        this.displayCurrentWord();
-        this.updateWordCounter();
-        this.updateProgressBar();
-        this.updateStatus(`<strong>${doc.title}</strong> · Press <kbd>Space</kbd> to start`);
+        // Hide the previous RSVP word display when loading a doc — we now
+        // default to Faithful view, where RSVP is only triggered by a
+        // selection or page click.
+        this.elements.wordDisplay.classList.remove('visible');
+        this.clearWordDisplay();
+        this.hideStatus();
+        this.hasStarted = false;
+        this.isPaused = false;
 
-        // Note: we do NOT rewrite the document blob just to bump lastReadAt.
-        // Recency is derived from progress.updatedAt inside listDocuments().
-
-        this.populateChapterSelect();
         this.attachTopbarHandlers();
-        await setView('rsvp');
+        // Default view = Faithful for any imported document.
+        await setView('faithful');
     }
 
     handleReaderClick() {
@@ -689,16 +686,35 @@ class FastyApp {
         if (this._topbarHandlersAttached) return;
         this._topbarHandlersAttached = true;
 
-        document.getElementById('chapter-select').addEventListener('change', (e) => {
-            const i = parseInt(e.target.value, 10);
-            this.jumpToChapter(i);
-        });
+        // Exit button: close the current document, return to clean state.
+        const exitBtn = document.getElementById('exit-doc');
+        if (exitBtn) exitBtn.addEventListener('click', () => this.closeCurrentDoc());
+    }
 
-        document.getElementById('page-input').addEventListener('change', (e) => {
-            const page = Math.max(1, Math.min(this.currentDoc.totalPages, parseInt(e.target.value, 10) || 1));
-            this.jumpToPage(page - 1);
-            e.target.value = page;
-        });
+    /**
+     * Close the currently loaded document. Returns the reader to its default
+     * (paste-text + paused) state.
+     */
+    async closeCurrentDoc() {
+        this.pause();
+        this.currentDoc = null;
+        this._inSelectionMode = false;
+        this.words = [];
+        this.paragraphs = [];
+        this.currentWordIndex = 0;
+        this.currentParagraphIndex = 0;
+        this.hasStarted = false;
+        document.getElementById('reader-topbar').hidden = true;
+        // Switch back to RSVP (the default empty state) so the pasted-text
+        // workflow is available again.
+        const { setView, forceResetView } = await import('./src/view-switcher.js');
+        if (forceResetView) forceResetView();
+        const faithful = document.getElementById('faithful-container');
+        if (faithful) { faithful.hidden = true; faithful.innerHTML = ''; }
+        document.querySelector('.app-container').classList.remove('view-faithful');
+        this.elements.wordDisplay.classList.remove('visible');
+        this.clearWordDisplay();
+        this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
     }
 
     jumpToChapter(i) {
@@ -747,7 +763,12 @@ class FastyApp {
     syncTopbarPage() {
         if (!this.currentDoc) return;
         const page = (this.currentDoc.wordToPage[this.currentWordIndex] || 0) + 1;
-        document.getElementById('page-input').value = page;
+        // Hidden DOM hook (kept for any legacy code paths)
+        const pageInput = document.getElementById('page-input');
+        if (pageInput) pageInput.value = page;
+        // Visible page indicator
+        const pageInfo = document.getElementById('doc-page-info');
+        if (pageInfo) pageInfo.textContent = `Page ${page} / ${this.currentDoc.totalPages}`;
     }
 
     // ==================== Auto-save Progress ====================
