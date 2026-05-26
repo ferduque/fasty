@@ -2,6 +2,7 @@ import { toast } from './toasts.js';
 import { parseTextFile } from './parsers/text.js';
 import { parseUrl } from './parsers/url.js';
 import { parsePdfFile } from './parsers/pdf.js';
+import { parseEpubFile } from './parsers/epub.js';
 import { saveDocument } from './storage.js';
 
 const onImported = []; // listeners notified when a document is successfully imported
@@ -49,11 +50,10 @@ export function initImportModal() {
     showProgress(`Parsing ${file.name}…`);
     try {
       let doc;
-      if (ext === 'txt') {
-        doc = await parseTextFile(file);
-      } else if (ext === 'pdf') {
-        doc = await parsePdfFile(file);
-      } else {
+      if (ext === 'txt') doc = await parseTextFile(file);
+      else if (ext === 'pdf') doc = await parsePdfFile(file);
+      else if (ext === 'epub') doc = await parseEpubFile(file);
+      else {
         toast(`Importing .${ext} files not implemented yet`, { error: true });
         hideProgress();
         return;
