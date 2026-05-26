@@ -1,4 +1,6 @@
 import { toast } from './toasts.js';
+import { parseTextFile } from './parsers/text.js';
+import { saveDocument } from './storage.js';
 
 const onImported = []; // listeners notified when a document is successfully imported
 
@@ -41,11 +43,28 @@ export function initImportModal() {
 
   async function handleFile(file) {
     if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
     showProgress(`Parsing ${file.name}…`);
-    // PLACEHOLDER: parser wiring added in later tasks
-    console.log('TODO parse file:', file);
-    toast(`File parsing not implemented yet: ${file.name}`);
-    hideProgress();
+    try {
+      let doc;
+      if (ext === 'txt') {
+        doc = await parseTextFile(file);
+      } else {
+        // Other parsers wired in later tasks
+        toast(`Importing .${ext} files not implemented yet`, { error: true });
+        hideProgress();
+        return;
+      }
+      await saveDocument(doc);
+      hideProgress();
+      close();
+      toast(`Imported "${doc.title}"`);
+      onImported.forEach(fn => fn(doc));
+    } catch (err) {
+      console.error(err);
+      toast(`Failed to import: ${err.message}`, { error: true });
+      hideProgress();
+    }
   }
 
   async function handleUrl(url) {
