@@ -103,22 +103,41 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
     cleanups.push(watchSelection(textLayerDiv));
 
     // Click on the page (no active selection) → speed-read this page with a
-    // continuation that yields each subsequent page on Space.
+    // continuation that yields each subsequent page on Space. Skips pages
+    // with no extractable text (covers / image-only pages).
     const onPageClick = async () => {
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed && sel.toString().trim()) return;
       if (!window.fastyApp) return;
-      // Make sure the next page is rendered so its text is cached.
+
       let cursorPage = pageIndex;
-      window.fastyApp.startPageRead(pageTexts[cursorPage] || '', async () => {
+      // Find the first page from here with usable text (skip image-only pages).
+      while (cursorPage < pdf.numPages && !(pageTexts[cursorPage] && pageTexts[cursorPage].trim())) {
         const next = cursorPage + 1;
-        if (next >= pdf.numPages) return null;
+        if (next >= pdf.numPages) break;
         await renderPage(next);
         cursorPage = next;
-        // Scroll the Faithful view forward so the user lands on the right page
-        // when they exit RSVP.
-        pageDivs[next]?.scrollIntoView({ block: 'start' });
-        return pageTexts[next] || '';
+      }
+      const startText = (pageTexts[cursorPage] || '').trim();
+      if (!startText) {
+        const { toast } = await import('../toasts.js');
+        toast('No readable text on the rest of this PDF — try selecting text instead', { error: true });
+        return;
+      }
+      if (cursorPage !== pageIndex) pageDivs[cursorPage]?.scrollIntoView({ block: 'start' });
+      window.fastyApp.startPageRead(startText, async () => {
+        // Advance to the next text-bearing page on Space.
+        let next = cursorPage + 1;
+        while (next < pdf.numPages) {
+          await renderPage(next);
+          if (pageTexts[next] && pageTexts[next].trim()) {
+            cursorPage = next;
+            pageDivs[next]?.scrollIntoView({ block: 'start' });
+            return pageTexts[next];
+          }
+          next++;
+        }
+        return null;
       });
     };
     div.addEventListener('click', onPageClick);
