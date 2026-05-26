@@ -76,7 +76,10 @@ class FastyApp {
                 this.centerORPLetter();
             }
         });
-        
+
+        // Save progress on tab unload
+        window.addEventListener('beforeunload', () => this.saveCurrentProgress());
+
         // Initialize settings
         this.wpm = parseInt(this.elements.wpmSelect.value);
         this.sentencePause = parseInt(this.elements.pauseSelect.value);
@@ -371,31 +374,43 @@ class FastyApp {
         if (this.isPlaying || this.currentWordIndex >= this.words.length) {
             return;
         }
-        
+
         this.isPlaying = true;
         this.isPaused = false;
         this.hideStatus();
         this.setReadingState(true);
-        
+
         // Start the reading loop
         this.scheduleNextWord();
+
+        // Auto-save every 5 seconds while playing
+        if (!this._autosaveInterval) {
+            this._autosaveInterval = setInterval(() => this.saveCurrentProgress(), 5000);
+        }
     }
     
     pause() {
         this.isPlaying = false;
         this.isPaused = true;
         this.setReadingState(false);
-        
+
         if (this.intervalId) {
             clearTimeout(this.intervalId);
             this.intervalId = null;
         }
-        
+
         if (this.sentencePauseTimeoutId) {
             clearTimeout(this.sentencePauseTimeoutId);
             this.sentencePauseTimeoutId = null;
         }
-        
+
+        if (this._autosaveInterval) {
+            clearInterval(this._autosaveInterval);
+            this._autosaveInterval = null;
+        }
+
+        this.saveCurrentProgress();
+
         if (this.hasStarted && this.currentWordIndex < this.words.length) {
             this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
         }
@@ -714,6 +729,17 @@ class FastyApp {
         if (!this.currentDoc) return;
         const page = (this.currentDoc.wordToPage[this.currentWordIndex] || 0) + 1;
         document.getElementById('page-input').value = page;
+    }
+
+    // ==================== Auto-save Progress ====================
+
+    async saveCurrentProgress() {
+        if (!this.currentDoc) return;
+        const { saveProgress } = await import('./src/storage.js');
+        await saveProgress(this.currentDoc.id, {
+            currentChapterIndex: this.currentParagraphIndex,
+            currentWordIndex: this.currentWordIndex,
+        });
     }
 }
 
