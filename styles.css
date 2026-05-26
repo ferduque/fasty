@@ -526,3 +526,15 @@ body {
 .view-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
 .view-toggle button { background: transparent; color: var(--text-dim); padding: 4px 10px; border: none; cursor: pointer; font-size: 13px; }
 .view-toggle button.active { background: var(--accent); color: white; }
+
+/* Header buttons */
+.header { display: flex; align-items: center; justify-content: space-between; }
+.header-actions { display: flex; gap: 8px; }
+.btn-ghost, .btn-primary {
+  border-radius: 6px; padding: 6px 12px; font-size: 14px; cursor: pointer;
+  font-family: inherit;
+}
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--text-dim); }
+.btn-primary { background: var(--accent); color: white; border: none; }
+.btn-primary:hover { filter: brightness(1.05); }
