@@ -1,6 +1,7 @@
 import { toast } from './toasts.js';
 import { parseTextFile } from './parsers/text.js';
 import { parseUrl } from './parsers/url.js';
+import { parsePdfFile } from './parsers/pdf.js';
 import { saveDocument } from './storage.js';
 
 const onImported = []; // listeners notified when a document is successfully imported
@@ -50,8 +51,9 @@ export function initImportModal() {
       let doc;
       if (ext === 'txt') {
         doc = await parseTextFile(file);
+      } else if (ext === 'pdf') {
+        doc = await parsePdfFile(file);
       } else {
-        // Other parsers wired in later tasks
         toast(`Importing .${ext} files not implemented yet`, { error: true });
         hideProgress();
         return;
