@@ -4,6 +4,7 @@
  */
 
 import { initTheme } from './src/theme.js';
+import { initImportModal } from './src/import-modal.js';
 
 class FastyApp {
     constructor() {
@@ -603,5 +604,6 @@ class FastyApp {
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    initImportModal();
     window.fastyApp = new FastyApp();
 });

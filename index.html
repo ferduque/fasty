@@ -141,6 +141,30 @@
 
     <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
+    <div class="modal-backdrop" id="import-backdrop" hidden>
+      <div class="modal" role="dialog" aria-labelledby="import-title">
+        <button class="modal-close" id="import-close" aria-label="Close">✕</button>
+        <h2 id="import-title">Import a document</h2>
+
+        <div class="drop-zone" id="drop-zone">
+          <p>Drop a <strong>PDF</strong>, <strong>EPUB</strong>, or <strong>TXT</strong> file here</p>
+          <p class="muted">or</p>
+          <button class="btn-ghost" id="pick-file">Pick a file…</button>
+          <input type="file" id="file-input" accept=".pdf,.epub,.txt" hidden />
+        </div>
+
+        <div class="url-row">
+          <input type="url" id="url-input" placeholder="…or paste an article URL" />
+          <button class="btn-primary" id="url-import">Import URL</button>
+        </div>
+
+        <div class="import-progress" id="import-progress" hidden>
+          <p id="import-status">Parsing…</p>
+          <div class="progress-bar-shell"><div class="progress-bar-fill" id="import-bar"></div></div>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="app.js"></script>
 </body>
 </html>

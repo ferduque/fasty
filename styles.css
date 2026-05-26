@@ -538,3 +538,34 @@ body {
 .btn-ghost:hover { border-color: var(--text-dim); }
 .btn-primary { background: var(--accent); color: white; border: none; }
 .btn-primary:hover { filter: brightness(1.05); }
+
+/* Modal styles */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 500;
+}
+.modal-backdrop[hidden] { display: none; }
+.modal {
+  background: var(--bg-elev); color: var(--text);
+  border-radius: 12px; padding: 28px; min-width: 420px; max-width: 560px;
+  box-shadow: var(--shadow); position: relative;
+}
+.modal h2 { margin: 0 0 16px; font-size: 18px; }
+.modal-close {
+  position: absolute; top: 12px; right: 12px;
+  background: transparent; border: none; color: var(--text-dim);
+  font-size: 16px; cursor: pointer;
+}
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: 10px;
+  padding: 32px; text-align: center; transition: border-color .15s, background .15s;
+}
+.drop-zone.dragover { border-color: var(--accent); background: rgba(200,85,61,0.05); }
+.drop-zone p { margin: 4px 0; }
+.drop-zone .muted { color: var(--text-dim); font-size: 13px; }
+.url-row { display: flex; gap: 8px; margin-top: 16px; }
+.url-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font-family: inherit; }
+.import-progress { margin-top: 16px; }
+.progress-bar-shell { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 6px; }
+.progress-bar-fill { height: 100%; background: var(--accent); width: 0; transition: width .2s; }
