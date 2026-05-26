@@ -4,7 +4,8 @@
  */
 
 import { initTheme } from './src/theme.js';
-import { initImportModal } from './src/import-modal.js';
+import { initImportModal, onDocumentImported } from './src/import-modal.js';
+import { initLibrary, refresh as refreshLibrary } from './src/library.js';
 
 class FastyApp {
     constructor() {
@@ -605,5 +606,7 @@ class FastyApp {
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initImportModal();
+    initLibrary();
+    onDocumentImported(() => refreshLibrary());
     window.fastyApp = new FastyApp();
 });
