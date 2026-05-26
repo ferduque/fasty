@@ -8,7 +8,7 @@
  * Select text in a page → "▶ Read this" floating button.
  */
 
-import { watchSelection, attachClickToRead, hide as hideSelectionBtn } from '../selection-reader.js';
+import { watchSelection, hide as hideSelectionBtn } from '../selection-reader.js';
 
 const PDFJS_VERSION = '4.0.379';
 const PDFJS_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.mjs`;
@@ -97,9 +97,30 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
     }
     pageTexts[pageIndex] = pageTextParts.join(' ').replace(/\s+/g, ' ').trim();
 
-    // Selection + click-to-read for this page
+    // Selection inside the text layer → floating "Read this" button.
     cleanups.push(watchSelection(textLayerDiv));
-    cleanups.push(attachClickToRead(div, () => pageTexts[pageIndex] || ''));
+
+    // Click on the page (no active selection) → speed-read this page with a
+    // continuation that yields each subsequent page on Space.
+    const onPageClick = async () => {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+      if (!window.fastyApp) return;
+      // Make sure the next page is rendered so its text is cached.
+      let cursorPage = pageIndex;
+      window.fastyApp.startPageRead(pageTexts[cursorPage] || '', async () => {
+        const next = cursorPage + 1;
+        if (next >= pdf.numPages) return null;
+        await renderPage(next);
+        cursorPage = next;
+        // Scroll the Faithful view forward so the user lands on the right page
+        // when they exit RSVP.
+        pageDivs[next]?.scrollIntoView({ block: 'start' });
+        return pageTexts[next] || '';
+      });
+    };
+    div.addEventListener('click', onPageClick);
+    cleanups.push(() => div.removeEventListener('click', onPageClick));
   }
 
   function visiblePage() {

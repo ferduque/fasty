@@ -65,16 +65,36 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
     } catch (_) {}
   });
 
-  // Click inside the iframe without a selection = read the visible page.
+  // Helper: get the text of the currently visible EPUB page.
+  function visiblePageText() {
+    const contents = rendition.getContents()?.[0];
+    const body = contents?.document?.body;
+    if (!body) return '';
+    return body.innerText.replace(/\s+/g, ' ').trim();
+  }
+
+  // Click inside the iframe without a selection = speed-read the visible page,
+  // with a continuation that turns to the next EPUB page on Space.
   rendition.hooks.content.register((contents) => {
     contents.document.addEventListener('click', () => {
       const sel = contents.window.getSelection();
-      if (sel && !sel.isCollapsed && sel.toString().trim()) return; // selection handled separately
-      const body = contents.document.body;
-      if (!body) return;
-      // Get just the text in the currently visible page (approximate)
-      const visibleText = body.innerText.replace(/\s+/g, ' ').trim();
-      if (visibleText && window.fastyApp) window.fastyApp.startSelectionRead(visibleText);
+      if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+      const text = visiblePageText();
+      if (!text || !window.fastyApp) return;
+      window.fastyApp.startPageRead(text, async () => {
+        // Turn to the next page and wait for the relocated event to settle.
+        const settled = new Promise(resolve => {
+          const onceRelocated = () => { rendition.off('relocated', onceRelocated); resolve(); };
+          rendition.on('relocated', onceRelocated);
+        });
+        const navState = await rendition.next();
+        // If we were at the last page, rendition.next() resolves but no new
+        // page is shown; detect that by comparing text before/after.
+        await Promise.race([settled, new Promise(r => setTimeout(r, 400))]);
+        const next = visiblePageText();
+        if (!next || next === text) return null;
+        return next;
+      });
     });
   });
 

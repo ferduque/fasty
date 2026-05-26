@@ -6,7 +6,7 @@
  * Select text → floating "▶ Read this" button → read just the selection.
  */
 import { WORDS_PER_VIRTUAL_PAGE } from '../doc-model.js';
-import { watchSelection, attachClickToRead, hide as hideSelectionBtn } from '../selection-reader.js';
+import { watchSelection, hide as hideSelectionBtn } from '../selection-reader.js';
 
 export async function mount(container, doc, initialPage, { onPageChange }) {
   // Concatenate full text once
@@ -46,8 +46,24 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
 
   // Selection → floating "Read this" button
   const unwatchSelection = watchSelection(pageEl);
-  // Click (without selection) → read whole page
-  const unwatchClick = attachClickToRead(pageEl, () => pages[current]);
+
+  // Click on the page (without an active text selection) → speed-read this
+  // page with a continuation that supplies the next page on demand.
+  const onPageClick = () => {
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+    if (!window.fastyApp) return;
+    const startIndex = current;
+    window.fastyApp.startPageRead(pages[startIndex], () => {
+      const nextIdx = current + 1;
+      if (nextIdx >= pages.length) return null;
+      current = nextIdx;
+      render();
+      return pages[current];
+    });
+  };
+  pageEl.addEventListener('click', onPageClick);
+  const unwatchClick = () => pageEl.removeEventListener('click', onPageClick);
 
   render();
   return {

@@ -97,6 +97,7 @@ class FastyApp {
         if (!doc) return;
         this.currentDoc = doc;
         this._inSelectionMode = false;
+        this._pageReadContinuation = null;
 
         // Build paragraphs from chapters (still used by selection-RSVP for
         // resolving paragraph indices, even though we default to Faithful)
@@ -138,9 +139,14 @@ class FastyApp {
         if (!this.hasStarted) {
             this.startReading();
         } else if (this.isPaused) {
+            // Page-read continuation: at end of a page chunk, Space/click loads next page
+            if (this._isAtEnd() && this._pageReadContinuation) {
+                this._advancePageRead();
+                return;
+            }
             const currentParagraph = this.paragraphs[this.currentParagraphIndex];
             const paragraphEndIndex = currentParagraph.startWordIndex + currentParagraph.words.length;
-            
+
             if (this.currentWordIndex >= paragraphEndIndex) {
                 this.continueAfterParagraph();
             } else {
@@ -149,6 +155,28 @@ class FastyApp {
         } else {
             this.pause();
         }
+    }
+
+    _isAtEnd() {
+        return this.currentWordIndex >= this.words.length;
+    }
+
+    /** Call the continuation hook to fetch the next page's text. */
+    async _advancePageRead() {
+        if (!this._pageReadContinuation) return;
+        const cont = this._pageReadContinuation;
+        let nextText = null;
+        try { nextText = await cont(); } catch (_) {}
+        if (!nextText) {
+            // End of document
+            this._pageReadContinuation = null;
+            this.updateStatus('End of document · ✕ to close', true);
+            return;
+        }
+        // Restart RSVP with the next page's text; restore continuation afterwards.
+        this._pageReadContinuation = null;
+        await this.startSelectionRead(nextText);
+        this._pageReadContinuation = cont;
     }
     
     // ==================== State Management ====================
@@ -548,7 +576,11 @@ class FastyApp {
     }
     
     showEndOfText() {
-        this.updateStatus('Done · Edit text or press <kbd>Space</kbd> to restart', true);
+        if (this._pageReadContinuation) {
+            this.updateStatus('End of page · <kbd>Space</kbd> for next page', true);
+        } else {
+            this.updateStatus('Done · Edit text or press <kbd>Space</kbd> to restart', true);
+        }
     }
     
     continueAfterParagraph() {
@@ -622,6 +654,11 @@ class FastyApp {
             if (!this.hasStarted) {
                 this.startReading();
             } else if (this.isPaused) {
+                // Page-read continuation: at end of a page chunk, Space loads next page
+                if (this._isAtEnd() && this._pageReadContinuation) {
+                    this._advancePageRead();
+                    return;
+                }
                 // If at paragraph break or end, continue to next section
                 const currentParagraph = this.paragraphs[this.currentParagraphIndex];
                 const paragraphEndIndex = currentParagraph.startWordIndex + currentParagraph.words.length;
@@ -699,6 +736,7 @@ class FastyApp {
         this.pause();
         this.currentDoc = null;
         this._inSelectionMode = false;
+        this._pageReadContinuation = null;
         this.words = [];
         this.paragraphs = [];
         this.currentWordIndex = 0;
@@ -790,6 +828,17 @@ class FastyApp {
      * transient "selection mode" — progress isn't saved against any document.
      * Reading the whole book/article again means clicking it from the library.
      */
+    /**
+     * Read a page in RSVP with continuation: after the last word is shown the
+     * reader pauses with "End of page · Space for next page". Hitting Space (or
+     * clicking the reader) calls `getNextText()` and starts RSVP on the result.
+     * `getNextText` returns a string (next page) or null/undefined (no more pages).
+     */
+    async startPageRead(text, getNextText) {
+        this._pageReadContinuation = typeof getNextText === 'function' ? getNextText : null;
+        await this.startSelectionRead(text);
+    }
+
     async startSelectionRead(text) {
         if (!text || !text.trim()) return;
         this.pause();
