@@ -58,6 +58,16 @@ export function initImportModal() {
         hideProgress();
         return;
       }
+      // Duplicate check
+      const { listDocuments, deleteDocument, saveDocument } = await import('./storage.js');
+      const existing = (await listDocuments()).find(d =>
+        d.title === doc.title && d.source === doc.source
+      );
+      if (existing) {
+        const replace = confirm(`"${doc.title}" already exists in your library. Replace it?`);
+        if (!replace) { hideProgress(); return; }
+        await deleteDocument(existing.id);
+      }
       await saveDocument(doc);
       hideProgress();
       close();
