@@ -610,6 +610,11 @@ class FastyApp {
             return;
         }
 
+        // In Faithful view, arrows belong to the view, not the RSVP scrubber.
+        if (document.querySelector('.app-container').classList.contains('view-faithful')) {
+            if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') return;
+        }
+
         if (e.code === 'Space') {
             e.preventDefault();
 
