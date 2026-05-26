@@ -636,3 +636,13 @@ body {
 .app-container.view-faithful .faithful-container { display: block; }
 .faithful-container { flex: 1; overflow: auto; padding: 24px; min-height: 0; }
 .faithful-container[hidden] { display: none; }
+
+/* Faithful Text View */
+.ft-page {
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-size: 19px; line-height: 1.7; color: var(--text-primary);
+  max-width: 640px; margin: 0 auto;
+  white-space: pre-wrap;
+}
+.ft-nav { display: flex; align-items: center; gap: 16px; justify-content: center; margin: 24px 0; }
+.ft-pageinfo { color: var(--text-secondary); font-size: 13px; }

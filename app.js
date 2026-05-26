@@ -6,7 +6,7 @@
 import { initTheme } from './src/theme.js';
 import { initImportModal, onDocumentImported } from './src/import-modal.js';
 import { initLibrary, refresh as refreshLibrary } from './src/library.js';
-import { initViewSwitcher, setView } from './src/view-switcher.js';
+import { initViewSwitcher, setView, registerView } from './src/view-switcher.js';
 
 class FastyApp {
     constructor() {
@@ -752,6 +752,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initLibrary();
     onDocumentImported(() => refreshLibrary());
     window.fastyApp = new FastyApp();
+    registerView('txt', () => import('./src/views/faithful-text.js'));
+    registerView('url', () => import('./src/views/faithful-text.js'));
     initViewSwitcher(window.fastyApp);
 
     import('./src/library.js').then(({ onLibraryDocumentSelected }) => {
