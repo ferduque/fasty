@@ -516,22 +516,19 @@ body {
 @keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* Reader top bar */
-/* Compact top bar — slim overlay; does NOT push content down. */
+/* Compact top bar — in-flow but slim (~32px). */
 .reader-topbar {
-  position: absolute;
-  top: 14px;
-  left: 16px;
-  right: 60px; /* leave room for the theme toggle */
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 13px;
   color: var(--text-dim);
-  z-index: 5;
-  pointer-events: none; /* container is just a layout — only its children take clicks */
+  padding: 6px 56px 6px 16px; /* right padding leaves room for the theme toggle */
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 32px;
 }
 .reader-topbar[hidden] { display: none; }
-.reader-topbar > * { pointer-events: auto; }
 .reader-topbar .doc-title {
   color: var(--text); font-weight: 500;
   max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;

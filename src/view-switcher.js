@@ -29,18 +29,22 @@ export async function setView(name) {
   if (!appRef?.currentDoc || name === currentView) return;
   if (name === 'rsvp') {
     if (mounted) {
-      const page = mounted.getCurrentPage();
+      // If we're entering selection mode (click-to-read or "Read this"), the
+      // caller has already set words/paragraphs/currentWordIndex on appRef —
+      // we must NOT overwrite them by syncing from the visible Faithful page.
+      if (!appRef._inSelectionMode) {
+        const page = mounted.getCurrentPage();
+        for (let i = 0; i < appRef.currentDoc.wordToPage.length; i++) {
+          if (appRef.currentDoc.wordToPage[i] === page) { appRef.currentWordIndex = i; break; }
+        }
+        appRef.currentParagraphIndex = appRef.paragraphIndexForWord(appRef.currentWordIndex);
+        appRef.displayCurrentWord();
+        appRef.updateWordCounter();
+        appRef.updateProgressBar();
+        appRef.syncTopbarPage();
+      }
       mounted.unmount();
       mounted = null;
-      // Move current word to first on that page
-      for (let i = 0; i < appRef.currentDoc.wordToPage.length; i++) {
-        if (appRef.currentDoc.wordToPage[i] === page) { appRef.currentWordIndex = i; break; }
-      }
-      appRef.currentParagraphIndex = appRef.paragraphIndexForWord(appRef.currentWordIndex);
-      appRef.displayCurrentWord();
-      appRef.updateWordCounter();
-      appRef.updateProgressBar();
-      appRef.syncTopbarPage();
     }
   } else {
     const factory = viewFactories[appRef.currentDoc.source];
