@@ -3,6 +3,8 @@
  * Single-page interface for efficient reading
  */
 
+import { initTheme } from './src/theme.js';
+
 class FastyApp {
     constructor() {
         // State
@@ -600,5 +602,6 @@ class FastyApp {
 
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    initTheme();
     window.fastyApp = new FastyApp();
 });
