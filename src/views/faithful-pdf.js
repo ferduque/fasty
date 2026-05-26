@@ -12,11 +12,13 @@ import { watchSelection, hide as hideSelectionBtn } from '../selection-reader.js
 
 const PDFJS_VERSION = '4.0.379';
 const PDFJS_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.mjs`;
+const PDFJS_WORKER = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.mjs`;
 
 let pdfjsLib = null;
 async function loadPdfJs() {
   if (pdfjsLib) return pdfjsLib;
   pdfjsLib = await import(/* @vite-ignore */ PDFJS_URL);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
   return pdfjsLib;
 }
 
