@@ -84,7 +84,47 @@ class FastyApp {
         // Set initial state
         this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
     }
-    
+
+    async loadDocument(docId) {
+        const { getDocument, getProgress } = await import('./src/storage.js');
+        const doc = await getDocument(docId);
+        if (!doc) return;
+        this.currentDoc = doc;
+
+        // Build paragraphs from chapters
+        this.paragraphs = doc.chapters.map((ch, index) => ({
+            index,
+            text: ch.text,
+            words: ch.text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean),
+            startWordIndex: ch.startWordIndex,
+        }));
+        this.words = this.paragraphs.flatMap(p => p.words);
+
+        // Restore progress
+        const progress = await getProgress(docId);
+        this.currentWordIndex = progress ? progress.currentWordIndex : 0;
+        this.currentParagraphIndex = progress ? progress.currentChapterIndex : 0;
+
+        // Show top bar with title
+        const topbar = document.getElementById('reader-topbar');
+        topbar.hidden = false;
+        document.getElementById('doc-title').textContent = doc.title;
+        document.getElementById('total-pages').textContent = doc.totalPages;
+        document.getElementById('page-input').max = doc.totalPages;
+        document.getElementById('page-input').value = (doc.wordToPage[this.currentWordIndex] || 0) + 1;
+
+        this.hasStarted = true;
+        this.isPaused = true;
+        this.elements.wordDisplay.classList.add('visible');
+        this.displayCurrentWord();
+        this.updateWordCounter();
+        this.updateProgressBar();
+        this.updateStatus(`<strong>${doc.title}</strong> · Press <kbd>Space</kbd> to start`);
+
+        // Note: we do NOT rewrite the document blob just to bump lastReadAt.
+        // Recency is derived from progress.updatedAt inside listDocuments().
+    }
+
     handleReaderClick() {
         if (!this.hasStarted) {
             this.startReading();
@@ -609,4 +649,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initLibrary();
     onDocumentImported(() => refreshLibrary());
     window.fastyApp = new FastyApp();
+
+    import('./src/library.js').then(({ onLibraryDocumentSelected }) => {
+        onLibraryDocumentSelected((id) => window.fastyApp.loadDocument(id));
+    });
 });
