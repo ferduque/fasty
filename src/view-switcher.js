@@ -53,18 +53,32 @@ export async function setView(name) {
     const container = document.getElementById('faithful-container');
     container.innerHTML = '';
     container.hidden = false;
-    const { mount } = await factory();
-    const initialPage = appRef.currentDoc.wordToPage[appRef.currentWordIndex] || 0;
-    mounted = await mount(container, appRef.currentDoc, initialPage, {
-      onPageChange: (page) => {
-        document.getElementById('page-input').value = page + 1;
-        // best-effort: set currentWordIndex to first word of page (so RSVP resume is aligned)
-        for (let i = 0; i < appRef.currentDoc.wordToPage.length; i++) {
-          if (appRef.currentDoc.wordToPage[i] === page) { appRef.currentWordIndex = i; break; }
-        }
-        appRef.saveCurrentProgress();
-      },
-    });
+    // Toggle class BEFORE the (potentially long-running) mount so the user
+    // immediately sees the faithful container instead of the still-visible
+    // RSVP placeholder. If mount fails, we revert below.
+    document.querySelector('.app-container').classList.add('view-faithful');
+    try {
+      const { mount } = await factory();
+      const initialPage = appRef.currentDoc.wordToPage[appRef.currentWordIndex] || 0;
+      mounted = await mount(container, appRef.currentDoc, initialPage, {
+        onPageChange: (page) => {
+          document.getElementById('page-input').value = page + 1;
+          for (let i = 0; i < appRef.currentDoc.wordToPage.length; i++) {
+            if (appRef.currentDoc.wordToPage[i] === page) { appRef.currentWordIndex = i; break; }
+          }
+          appRef.saveCurrentProgress();
+        },
+      });
+    } catch (err) {
+      console.error('Faithful view mount failed:', err);
+      document.querySelector('.app-container').classList.remove('view-faithful');
+      container.hidden = true;
+      try {
+        const { toast } = await import('./toasts.js');
+        toast(`Couldn't open document: ${err?.message || err}`, { error: true });
+      } catch (_) {}
+      return;
+    }
   }
   currentView = name;
   document.querySelectorAll('#view-toggle button').forEach(b => {
