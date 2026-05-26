@@ -123,6 +123,9 @@ class FastyApp {
 
         // Note: we do NOT rewrite the document blob just to bump lastReadAt.
         // Recency is derived from progress.updatedAt inside listDocuments().
+
+        this.populateChapterSelect();
+        this.attachTopbarHandlers();
     }
 
     handleReaderClick() {
@@ -474,7 +477,8 @@ class FastyApp {
         this.displayCurrentWord();
         this.updateWordCounter();
         this.updateProgressBar();
-        
+        this.syncTopbarPage();
+
         // Schedule the next word
         this.scheduleNextWord();
     }
@@ -588,17 +592,17 @@ class FastyApp {
         if (e.target === this.elements.textInput) {
             return;
         }
-        
+
         if (e.code === 'Space') {
             e.preventDefault();
-            
+
             if (!this.hasStarted) {
                 this.startReading();
             } else if (this.isPaused) {
                 // If at paragraph break or end, continue to next section
                 const currentParagraph = this.paragraphs[this.currentParagraphIndex];
                 const paragraphEndIndex = currentParagraph.startWordIndex + currentParagraph.words.length;
-                
+
                 if (this.currentWordIndex >= paragraphEndIndex) {
                     this.continueAfterParagraph();
                 } else {
@@ -608,7 +612,7 @@ class FastyApp {
                 this.pause();
             }
         }
-        
+
         // Arrow keys for navigation
         if (e.code === 'ArrowLeft') {
             e.preventDefault();
@@ -633,12 +637,83 @@ class FastyApp {
                 }
             }
         }
-        
+
         // R to restart current paragraph
         if (e.code === 'KeyR' && this.hasStarted) {
             e.preventDefault();
             this.restartCurrentParagraph();
         }
+    }
+
+    // ==================== Chapter & Page Navigation ====================
+
+    populateChapterSelect() {
+        const sel = document.getElementById('chapter-select');
+        sel.innerHTML = '';
+        this.currentDoc.chapters.forEach((ch, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = `${i + 1}. ${ch.title || 'Chapter ' + (i + 1)}`;
+            sel.appendChild(opt);
+        });
+        sel.value = this.currentParagraphIndex;
+    }
+
+    attachTopbarHandlers() {
+        if (this._topbarHandlersAttached) return;
+        this._topbarHandlersAttached = true;
+
+        document.getElementById('chapter-select').addEventListener('change', (e) => {
+            const i = parseInt(e.target.value, 10);
+            this.jumpToChapter(i);
+        });
+
+        document.getElementById('page-input').addEventListener('change', (e) => {
+            const page = Math.max(1, Math.min(this.currentDoc.totalPages, parseInt(e.target.value, 10) || 1));
+            this.jumpToPage(page - 1);
+            e.target.value = page;
+        });
+    }
+
+    jumpToChapter(i) {
+        if (!this.currentDoc || i < 0 || i >= this.paragraphs.length) return;
+        this.pause();
+        this.currentParagraphIndex = i;
+        this.currentWordIndex = this.paragraphs[i].startWordIndex;
+        this.displayCurrentWord();
+        this.updateWordCounter();
+        this.updateProgressBar();
+        this.syncTopbarPage();
+    }
+
+    jumpToPage(pageIndex) {
+        if (!this.currentDoc) return;
+        this.pause();
+        // First word whose wordToPage[i] === pageIndex
+        for (let i = 0; i < this.currentDoc.wordToPage.length; i++) {
+            if (this.currentDoc.wordToPage[i] === pageIndex) {
+                this.currentWordIndex = i;
+                this.currentParagraphIndex = this.paragraphIndexForWord(i);
+                this.displayCurrentWord();
+                this.updateWordCounter();
+                this.updateProgressBar();
+                document.getElementById('chapter-select').value = this.currentParagraphIndex;
+                return;
+            }
+        }
+    }
+
+    paragraphIndexForWord(wordIdx) {
+        for (let i = this.paragraphs.length - 1; i >= 0; i--) {
+            if (wordIdx >= this.paragraphs[i].startWordIndex) return i;
+        }
+        return 0;
+    }
+
+    syncTopbarPage() {
+        if (!this.currentDoc) return;
+        const page = (this.currentDoc.wordToPage[this.currentWordIndex] || 0) + 1;
+        document.getElementById('page-input').value = page;
     }
 }
 
