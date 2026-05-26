@@ -646,3 +646,8 @@ body {
 }
 .ft-nav { display: flex; align-items: center; gap: 16px; justify-content: center; margin: 24px 0; }
 .ft-pageinfo { color: var(--text-secondary); font-size: 13px; }
+
+/* Faithful PDF View */
+.fp-pages { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.fp-page { background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-radius: 4px; overflow: hidden; }
+:root[data-theme="dark"] .fp-page { background: #2a2a32; }

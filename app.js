@@ -703,20 +703,28 @@ class FastyApp {
         this.syncTopbarPage();
     }
 
-    jumpToPage(pageIndex) {
+    async jumpToPage(pageIndex) {
         if (!this.currentDoc) return;
-        this.pause();
-        // First word whose wordToPage[i] === pageIndex
+        // Always update currentWordIndex first
         for (let i = 0; i < this.currentDoc.wordToPage.length; i++) {
             if (this.currentDoc.wordToPage[i] === pageIndex) {
                 this.currentWordIndex = i;
                 this.currentParagraphIndex = this.paragraphIndexForWord(i);
-                this.displayCurrentWord();
-                this.updateWordCounter();
-                this.updateProgressBar();
-                document.getElementById('chapter-select').value = this.currentParagraphIndex;
-                return;
+                break;
             }
+        }
+        // If in Faithful, scroll the view
+        const { getView } = await import('./src/view-switcher.js');
+        if (getView() === 'faithful') {
+            const container = document.getElementById('faithful-container');
+            const pageEl = container.querySelector(`[data-page="${pageIndex}"]`);
+            if (pageEl) pageEl.scrollIntoView({ block: 'start' });
+        } else {
+            this.pause();
+            this.displayCurrentWord();
+            this.updateWordCounter();
+            this.updateProgressBar();
+            document.getElementById('chapter-select').value = this.currentParagraphIndex;
         }
     }
 
@@ -754,6 +762,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.fastyApp = new FastyApp();
     registerView('txt', () => import('./src/views/faithful-text.js'));
     registerView('url', () => import('./src/views/faithful-text.js'));
+    registerView('pdf', () => import('./src/views/faithful-pdf.js'));
     initViewSwitcher(window.fastyApp);
 
     import('./src/library.js').then(({ onLibraryDocumentSelected }) => {
