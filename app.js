@@ -763,6 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
     registerView('txt', () => import('./src/views/faithful-text.js'));
     registerView('url', () => import('./src/views/faithful-text.js'));
     registerView('pdf', () => import('./src/views/faithful-pdf.js'));
+    registerView('epub', () => import('./src/views/faithful-epub.js'));
     initViewSwitcher(window.fastyApp);
 
     import('./src/library.js').then(({ onLibraryDocumentSelected }) => {
