@@ -1,5 +1,6 @@
 import { toast } from './toasts.js';
 import { parseTextFile } from './parsers/text.js';
+import { parseUrl } from './parsers/url.js';
 import { saveDocument } from './storage.js';
 
 const onImported = []; // listeners notified when a document is successfully imported
@@ -70,10 +71,18 @@ export function initImportModal() {
   async function handleUrl(url) {
     if (!url) return;
     showProgress(`Fetching ${url}…`);
-    // PLACEHOLDER: parser wiring added in later tasks
-    console.log('TODO parse URL:', url);
-    toast(`URL parsing not implemented yet: ${url}`);
-    hideProgress();
+    try {
+      const doc = await parseUrl(url);
+      await saveDocument(doc);
+      hideProgress();
+      close();
+      toast(`Imported "${doc.title}"`);
+      onImported.forEach(fn => fn(doc));
+    } catch (err) {
+      console.error(err);
+      toast(`URL import failed: ${err.message}`, { error: true });
+      hideProgress();
+    }
   }
 
   function showProgress(msg, pct = null) {
