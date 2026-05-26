@@ -7,6 +7,7 @@ import { initTheme } from './src/theme.js';
 import { initImportModal, onDocumentImported } from './src/import-modal.js';
 import { initLibrary, refresh as refreshLibrary } from './src/library.js';
 import { initViewSwitcher, setView, registerView } from './src/view-switcher.js';
+import { initSelectionReader } from './src/selection-reader.js';
 
 class FastyApp {
     constructor() {
@@ -94,6 +95,9 @@ class FastyApp {
         const doc = await getDocument(docId);
         if (!doc) return;
         this.currentDoc = doc;
+        this._inSelectionMode = false;
+        const pageInputEl = document.getElementById('page-input');
+        if (pageInputEl) pageInputEl.disabled = false;
 
         // Build paragraphs from chapters
         this.paragraphs = doc.chapters.map((ch, index) => ({
@@ -749,12 +753,54 @@ class FastyApp {
     // ==================== Auto-save Progress ====================
 
     async saveCurrentProgress() {
-        if (!this.currentDoc) return;
+        if (this._inSelectionMode || !this.currentDoc) return;
         const { saveProgress } = await import('./src/storage.js');
         await saveProgress(this.currentDoc.id, {
             currentChapterIndex: this.currentParagraphIndex,
             currentWordIndex: this.currentWordIndex,
         });
+    }
+
+    // ==================== Selection / Click-to-Read ====================
+
+    /**
+     * Read an arbitrary block of text in RSVP (a paragraph the user clicked,
+     * a passage they selected, or a whole page). Switches the reader into a
+     * transient "selection mode" — progress isn't saved against any document.
+     * Reading the whole book/article again means clicking it from the library.
+     */
+    async startSelectionRead(text) {
+        if (!text || !text.trim()) return;
+        this.pause();
+        this._inSelectionMode = true;
+        this.words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+        this.paragraphs = [{ index: 0, text, words: this.words, startWordIndex: 0 }];
+        this.currentWordIndex = 0;
+        this.currentParagraphIndex = 0;
+        this.hasStarted = true;
+        this.isPaused = false;
+
+        // Switch to RSVP view (if currently in Faithful)
+        const { setView, getView } = await import('./src/view-switcher.js');
+        if (getView() === 'faithful') await setView('rsvp');
+
+        // Show top bar in a minimal "selection" state
+        const topbar = document.getElementById('reader-topbar');
+        if (topbar) topbar.hidden = false;
+        const titleEl = document.getElementById('doc-title');
+        if (titleEl && this.currentDoc) titleEl.textContent = `${this.currentDoc.title} — selection`;
+        const chapterSel = document.getElementById('chapter-select');
+        if (chapterSel) chapterSel.innerHTML = '<option>Selection</option>';
+        const totalPagesEl = document.getElementById('total-pages');
+        if (totalPagesEl) totalPagesEl.textContent = '1';
+        const pageInput = document.getElementById('page-input');
+        if (pageInput) { pageInput.value = 1; pageInput.disabled = true; }
+
+        this.elements.wordDisplay.classList.add('visible');
+        this.displayCurrentWord();
+        this.updateWordCounter();
+        this.updateProgressBar();
+        this.play();
     }
 }
 
@@ -765,6 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLibrary();
     onDocumentImported(() => refreshLibrary());
     window.fastyApp = new FastyApp();
+    initSelectionReader((text) => window.fastyApp.startSelectionRead(text));
     registerView('txt', () => import('./src/views/faithful-text.js'));
     registerView('url', () => import('./src/views/faithful-text.js'));
     registerView('pdf', () => import('./src/views/faithful-pdf.js'));

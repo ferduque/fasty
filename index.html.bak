@@ -7,10 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="app-container">
@@ -70,8 +67,8 @@
             <!-- Right panel: RSVP Reader -->
             <main class="reader-panel">
                 <!-- Theme toggle button -->
-                <button class="theme-toggle" id="theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
-                    <span class="theme-icon" id="theme-icon"></span>
+                <button class="theme-toggle" id="theme-toggle" title="Theme (cycles System / Light / Dark)" aria-label="Toggle theme">
+                    <span class="theme-icon" id="theme-icon">☀</span>
                 </button>
 
                 <div class="reader-topbar" id="reader-topbar" hidden>
@@ -126,8 +123,6 @@
                 <div class="status-message" id="status-message">
                     <span class="status-text">Paste text and press Space to start</span>
                 </div>
-                <!-- Faithful view container -->
-                <div class="faithful-container" id="faithful-container" hidden></div>
 
                 <!-- Bottom controls -->
                 <div class="reader-footer">
@@ -182,6 +177,6 @@
       </div>
     </div>
 
-    <script type="module" src="app.js?v=6"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>

@@ -1,7 +1,11 @@
 /**
  * Faithful EPUB view using epub.js paginated rendition.
+ *
+ * Selection inside the iframe → "▶ Read this" via the selection-reader's button.
+ * Click a page (without selection) → reads the current visible page as RSVP.
  */
 import { loadScript } from '../lazy-loader.js';
+import { showAt, hide as hideSelectionBtn } from '../selection-reader.js';
 
 const EPUBJS_URL = 'https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js';
 const JSZIP_URL = 'https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js';
@@ -37,6 +41,41 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
   rendition.on('relocated', (loc) => {
     const page = mapLocToVirtualPage(loc.start.cfi);
     onPageChange(page);
+    hideSelectionBtn();
+  });
+
+  // Selection inside the EPUB iframe → "Read this" button.
+  // epub.js fires `selected` with a CFI range; we resolve it to plain text.
+  rendition.on('selected', async (cfiRange, contents) => {
+    try {
+      const range = await book.getRange(cfiRange);
+      const text = range?.toString?.().trim();
+      if (!text) return;
+      const rect = range.getBoundingClientRect();
+      // The rect is relative to the iframe's document. Translate to viewport.
+      const iframe = contents?.document?.defaultView?.frameElement;
+      const iframeRect = iframe?.getBoundingClientRect();
+      const adjusted = iframeRect ? {
+        top: rect.top + iframeRect.top,
+        bottom: rect.bottom + iframeRect.top,
+        left: rect.left + iframeRect.left,
+        right: rect.right + iframeRect.left,
+      } : rect;
+      showAt(adjusted, text);
+    } catch (_) {}
+  });
+
+  // Click inside the iframe without a selection = read the visible page.
+  rendition.hooks.content.register((contents) => {
+    contents.document.addEventListener('click', () => {
+      const sel = contents.window.getSelection();
+      if (sel && !sel.isCollapsed && sel.toString().trim()) return; // selection handled separately
+      const body = contents.document.body;
+      if (!body) return;
+      // Get just the text in the currently visible page (approximate)
+      const visibleText = body.innerText.replace(/\s+/g, ' ').trim();
+      if (visibleText && window.fastyApp) window.fastyApp.startSelectionRead(visibleText);
+    });
   });
 
   // Jump to virtual page = initialPage

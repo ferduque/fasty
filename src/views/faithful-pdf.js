@@ -1,9 +1,14 @@
 /**
- * Faithful PDF view: scrollable list of canvas pages.
- * Lazily renders ±2 pages of the viewport.
+ * Faithful PDF view: scrollable list of canvas pages with a transparent text
+ * layer overlaid for selection. Lazily renders ±2 pages of the viewport.
  *
  * mount(container, doc, initialPage, { onPageChange }) -> { unmount, getCurrentPage }
+ *
+ * Click a page (without selection) → read that whole page in RSVP.
+ * Select text in a page → "▶ Read this" floating button.
  */
+
+import { watchSelection, attachClickToRead, hide as hideSelectionBtn } from '../selection-reader.js';
 
 const PDFJS_VERSION = '4.0.379';
 const PDFJS_URL = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.min.mjs`;
@@ -23,11 +28,14 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
   container.innerHTML = '<div class="fp-pages" id="fp-pages"></div>';
   const pagesContainer = container.querySelector('#fp-pages');
 
-  // Pre-create placeholder divs for every page so scroll math works
   const pageDivs = [];
   const renderedPages = new Set();
+  // Cache per-page text for click-to-read.
+  const pageTexts = new Array(pdf.numPages).fill(null);
+  // Per-page selection-watcher cleanup fns.
+  const cleanups = [];
 
-  // Render first to compute aspect ratio
+  // First page sets aspect ratio
   const firstPage = await pdf.getPage(1);
   const baseViewport = firstPage.getViewport({ scale: 1 });
   const targetWidth = Math.min(900, pagesContainer.clientWidth - 16);
@@ -37,8 +45,8 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
     const div = document.createElement('div');
     div.className = 'fp-page';
     div.dataset.page = p - 1;
-    const placeholderHeight = Math.round(baseViewport.height * scale * (baseViewport.width / baseViewport.width));
-    div.style.height = `${placeholderHeight}px`;
+    div.title = 'Click to speed-read this page · select text to read only the selection';
+    div.style.height = `${Math.round(baseViewport.height * scale)}px`;
     div.style.width = `${targetWidth}px`;
     pageDivs.push(div);
     pagesContainer.appendChild(div);
@@ -49,17 +57,51 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
     renderedPages.add(pageIndex);
     const page = await pdf.getPage(pageIndex + 1);
     const viewport = page.getViewport({ scale });
+    const div = pageDivs[pageIndex];
+    div.innerHTML = '';
+    div.style.height = `${viewport.height}px`;
+
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     canvas.style.display = 'block';
-    pageDivs[pageIndex].innerHTML = '';
-    pageDivs[pageIndex].appendChild(canvas);
-    pageDivs[pageIndex].style.height = `${viewport.height}px`;
+    div.appendChild(canvas);
+
+    const textLayerDiv = document.createElement('div');
+    textLayerDiv.className = 'fp-textlayer';
+    textLayerDiv.style.width = `${viewport.width}px`;
+    textLayerDiv.style.height = `${viewport.height}px`;
+    div.appendChild(textLayerDiv);
+
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+    // Build the text layer manually (no need for the optional TextLayer helper).
+    const textContent = await page.getTextContent();
+    const pageTextParts = [];
+    for (const item of textContent.items) {
+      if (!item.str) continue;
+      pageTextParts.push(item.str);
+      const tx = pdfjs.Util.transform(viewport.transform, item.transform);
+      const fontHeight = Math.hypot(tx[2], tx[3]);
+      const span = document.createElement('span');
+      span.textContent = item.str;
+      span.style.left = `${tx[4]}px`;
+      span.style.top = `${tx[5] - fontHeight}px`;
+      span.style.fontSize = `${fontHeight}px`;
+      span.style.fontFamily = item.fontName || 'sans-serif';
+      // Hairline scaling fix: stretch span to approximate width of the item
+      if (item.width) {
+        span.style.transform = `scaleX(${(item.width * scale) / span.getBoundingClientRect().width || 1})`;
+      }
+      textLayerDiv.appendChild(span);
+    }
+    pageTexts[pageIndex] = pageTextParts.join(' ').replace(/\s+/g, ' ').trim();
+
+    // Selection + click-to-read for this page
+    cleanups.push(watchSelection(textLayerDiv));
+    cleanups.push(attachClickToRead(div, () => pageTexts[pageIndex] || ''));
   }
 
-  // Lazy render around the visible window
   function visiblePage() {
     const top = container.scrollTop;
     let acc = 0;
@@ -80,12 +122,12 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
     if (center !== lastPage) {
       lastPage = center;
       onPageChange(center);
+      hideSelectionBtn();
     }
   }
 
   container.addEventListener('scroll', ensureVisibleRendered, { passive: true });
 
-  // Jump to initial page
   await renderPage(initialPage);
   pageDivs[initialPage].scrollIntoView({ block: 'start' });
   await ensureVisibleRendered();
@@ -93,6 +135,8 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
   return {
     unmount() {
       container.removeEventListener('scroll', ensureVisibleRendered);
+      cleanups.forEach(fn => fn());
+      hideSelectionBtn();
       container.innerHTML = '';
     },
     getCurrentPage() { return visiblePage(); },
