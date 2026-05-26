@@ -1,43 +1,39 @@
 /**
- * Theme cycle: System -> Light -> Dark -> System
+ * Theme toggle: Light <-> Dark.
  * Persists choice in localStorage.fasty.theme.
- * Applies via document.documentElement.dataset.theme = 'light' | 'dark' | unset (system).
+ * First visit defaults to OS preference.
  */
 
 const KEY = 'fasty.theme';
-const ICONS = { system: '☀', light: '☀', dark: '🌙' };
-const ORDER = ['system', 'light', 'dark'];
 
 export function initTheme() {
   const btn = document.getElementById('theme-toggle');
   const icon = document.getElementById('theme-icon');
   if (!btn || !icon) return;
 
-  applyTheme(getStored());
-  icon.textContent = ICONS[getStored()];
+  applyTheme(currentMode());
+  updateIcon(icon);
 
   btn.addEventListener('click', () => {
-    const next = ORDER[(ORDER.indexOf(getStored()) + 1) % ORDER.length];
+    const next = currentMode() === 'dark' ? 'light' : 'dark';
     localStorage.setItem(KEY, next);
     applyTheme(next);
-    icon.textContent = ICONS[next];
-  });
-
-  // React to OS changes while in System mode
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if (getStored() === 'system') applyTheme('system');
+    updateIcon(icon);
   });
 }
 
-function getStored() {
-  return localStorage.getItem(KEY) || 'system';
+/** Returns 'light' or 'dark'. */
+function currentMode() {
+  const stored = localStorage.getItem(KEY);
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function applyTheme(mode) {
-  if (mode === 'system') {
-    const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-  } else {
-    document.documentElement.dataset.theme = mode;
-  }
+  document.documentElement.dataset.theme = mode;
+}
+
+function updateIcon(icon) {
+  // Show the icon for the mode you'll switch TO, not the current one.
+  icon.textContent = currentMode() === 'dark' ? '☀' : '🌙';
 }
