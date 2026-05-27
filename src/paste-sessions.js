@@ -63,6 +63,14 @@ export async function saveSession({ existingId, text }) {
     }
   }
   if (!session) {
+    // New session — enforce per-tier cap on the client. Reading still works;
+    // we just don't persist this paste once the cap is hit.
+    const { maxSessions } = getCaps();
+    const sessions = await listPasteSessions();
+    if (sessions.length >= maxSessions) {
+      toast(`Paste session cap reached (${sessions.length}/${maxSessions}). Delete one or upgrade to Pro.`, { error: true, duration: 7000 });
+      return null;
+    }
     session = {
       id, text,
       title: deriveSessionTitle(text),

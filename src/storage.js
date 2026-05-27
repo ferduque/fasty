@@ -73,7 +73,8 @@ function awaitRequest(req) {
  */
 function mirror(thunk) {
   Promise.resolve().then(async () => {
-    const { isPro } = await import('./tiers.js');
+    const { waitForTierLoad, isPro } = await import('./tiers.js');
+    await waitForTierLoad();
     if (!isPro()) return;
     return thunk();
   }).catch(err => {
@@ -90,10 +91,9 @@ function mirror(thunk) {
 export async function pullCloudIntoLocal() {
   const cloud = await import('./cloud.js');
   if (!cloud.currentUser()) return;
-  // Free users stay local-only. Fetched directly to avoid racing the tier
-  // cache that loads in parallel on sign-in.
-  const profile = await cloud.getProfile().catch(() => null);
-  if (profile?.tier !== 'pro') return;
+  const { waitForTierLoad, isPro } = await import('./tiers.js');
+  await waitForTierLoad();
+  if (!isPro()) return;
   try {
     const [docs, sessions] = await Promise.all([
       cloud.cloudListDocs().catch(() => []),

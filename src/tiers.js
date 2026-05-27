@@ -16,9 +16,15 @@ let cachedTier = 'free';
 let cachedCaps = CAPS.free;
 const listeners = [];
 
+// Tracks the in-flight tier load triggered by the latest auth-change event.
+// Other modules call `waitForTierLoad()` so they read the cache *after* it
+// reflects the signed-in user's actual tier (avoids the parallel-listener race).
+let pendingLoad = null;
+
 export function getTier() { return cachedTier; }
 export function getCaps() { return cachedCaps; }
 export function isPro() { return cachedTier === 'pro'; }
+export function waitForTierLoad() { return pendingLoad || Promise.resolve(); }
 
 export function onTierChange(fn) {
   listeners.push(fn);
@@ -26,21 +32,23 @@ export function onTierChange(fn) {
 }
 
 export function initTiers() {
-  onAuthChange(async (user) => {
-    if (!user) {
-      cachedTier = 'free';
-      cachedCaps = CAPS.free;
-    } else {
-      try {
-        const profile = await getProfile();
-        cachedTier = profile?.tier || 'free';
-        cachedCaps = CAPS[cachedTier] || CAPS.free;
-      } catch (err) {
-        console.warn('tiers: failed to load profile', err);
+  onAuthChange((user) => {
+    pendingLoad = (async () => {
+      if (!user) {
         cachedTier = 'free';
         cachedCaps = CAPS.free;
+      } else {
+        try {
+          const profile = await getProfile();
+          cachedTier = profile?.tier || 'free';
+          cachedCaps = CAPS[cachedTier] || CAPS.free;
+        } catch (err) {
+          console.warn('tiers: failed to load profile', err);
+          cachedTier = 'free';
+          cachedCaps = CAPS.free;
+        }
       }
-    }
-    listeners.forEach(fn => { try { fn(cachedTier, cachedCaps); } catch (e) { console.error(e); } });
+      listeners.forEach(fn => { try { fn(cachedTier, cachedCaps); } catch (e) { console.error(e); } });
+    })();
   });
 }

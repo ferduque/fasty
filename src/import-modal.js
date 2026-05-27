@@ -3,8 +3,16 @@ import { parseTextFile } from './parsers/text.js';
 import { parseUrl } from './parsers/url.js';
 import { parsePdfFile } from './parsers/pdf.js';
 import { parseEpubFile } from './parsers/epub.js';
-import { saveDocument } from './storage.js';
+import { saveDocument, listDocuments } from './storage.js';
 import { useUrlImport } from './cloud.js';
+import { getCaps } from './tiers.js';
+
+async function isLibraryFull() {
+  const { maxDocs } = getCaps();
+  const count = (await listDocuments()).length;
+  if (count < maxDocs) return null;
+  return { count, cap: maxDocs };
+}
 
 const onImported = []; // listeners notified when a document is successfully imported
 
@@ -47,6 +55,11 @@ export function initImportModal() {
 
   async function handleFile(file) {
     if (!file) return;
+    const full = await isLibraryFull();
+    if (full) {
+      toast(`Library full (${full.count}/${full.cap}). Delete one or upgrade to Pro.`, { error: true, duration: 7000 });
+      return;
+    }
     const ext = file.name.split('.').pop().toLowerCase();
     showProgress(`Parsing ${file.name}…`);
     try {
@@ -83,6 +96,11 @@ export function initImportModal() {
 
   async function handleUrl(url) {
     if (!url) return;
+    const full = await isLibraryFull();
+    if (full) {
+      toast(`Library full (${full.count}/${full.cap}). Delete one or upgrade to Pro.`, { error: true, duration: 7000 });
+      return;
+    }
     showProgress(`Checking quota…`);
     try {
       const quota = await useUrlImport();

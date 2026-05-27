@@ -13,11 +13,11 @@ import {
 } from './storage.js';
 import {
   currentUser,
-  getProfile,
   cloudSaveDoc,
   cloudSaveSession,
   cloudSaveProgress,
 } from './cloud.js';
+import { waitForTierLoad, isPro } from './tiers.js';
 import { toast } from './toasts.js';
 
 const FLAG_PREFIX = 'fasty.migratedAt.';
@@ -25,10 +25,8 @@ const FLAG_PREFIX = 'fasty.migratedAt.';
 export async function migrateLocalToCloudIfNeeded() {
   const user = currentUser();
   if (!user) return;
-  // Free users stay local-only. Fetched directly so we don't race the tier
-  // cache that loads in parallel on sign-in.
-  const profile = await getProfile().catch(() => null);
-  if (profile?.tier !== 'pro') return;
+  await waitForTierLoad();
+  if (!isPro()) return;
   const flagKey = FLAG_PREFIX + user.id;
   if (localStorage.getItem(flagKey)) return;
 
