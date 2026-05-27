@@ -966,3 +966,42 @@ body.auth-required .modal-backdrop {
 .section-cap-badge:empty { display: none; }
 .section-cap-badge.at-cap { background: var(--accent); color: white; }
 
+/* Leaderboard overlay — full-page table on top of the app. */
+.leaderboard-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  z-index: 650; display: flex; flex-direction: column; overflow: auto;
+}
+.leaderboard-overlay[hidden] { display: none; }
+.leaderboard-topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 24px; border-bottom: 1px solid var(--border-color);
+}
+.leaderboard-topbar h2 { margin: 0; font-size: 18px; }
+.lb-tabs {
+  display: inline-flex; gap: 4px;
+  border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;
+}
+.lb-tab {
+  background: transparent; color: var(--text-secondary);
+  padding: 4px 12px; border: none; cursor: pointer; font-size: 13px;
+  font-family: inherit;
+}
+.lb-tab.active { background: var(--accent); color: white; }
+.leaderboard-topbar .modal-close {
+  margin-left: auto; position: static;
+}
+.leaderboard-body { padding: 24px; max-width: 720px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.lb-row {
+  display: grid; grid-template-columns: 40px 1fr auto auto;
+  gap: 16px; align-items: center;
+  padding: 10px 12px; border-radius: 8px;
+  border-bottom: 1px solid var(--border-color);
+}
+.lb-row.self { background: var(--bg-tertiary); }
+.lb-rank { font-weight: 600; color: var(--text-muted); }
+.lb-name { font-weight: 500; }
+.lb-name .country { color: var(--text-muted); font-size: 12px; margin-left: 6px; }
+.lb-wpm { font-size: 18px; font-weight: 600; color: var(--accent); }
+.lb-meta { font-size: 11px; color: var(--text-muted); text-align: right; }
+.lb-empty { text-align: center; color: var(--text-muted); padding: 40px 0; }
+
