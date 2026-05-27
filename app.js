@@ -30,7 +30,11 @@ class FastyApp {
         this.sentencePause = 200; // ms pause after sentence-ending punctuation
         this.intervalId = null;
         this.sentencePauseTimeoutId = null;
-        
+
+        // Reading-session "bout": filled on play(), flushed on pause/close/unload.
+        // { wordsAtStart, startTime, wpmAtStart, sourceDocId, sourcePasteId }
+        this._bout = null;
+
         // DOM Elements
         this.elements = {
             appContainer: document.querySelector('.app-container'),
@@ -87,8 +91,11 @@ class FastyApp {
             }
         });
 
-        // Save progress on tab unload
-        window.addEventListener('beforeunload', () => this.saveCurrentProgress());
+        // Save progress + flush reading bout on tab unload.
+        window.addEventListener('beforeunload', () => {
+            this.saveCurrentProgress();
+            this._flushReadingBout();
+        });
 
         // Initialize settings
         this.wpm = parseInt(this.elements.wpmSelect.value);
@@ -183,6 +190,8 @@ class FastyApp {
     /** Call the continuation hook to fetch the next page's text. */
     async _advancePageRead() {
         if (!this._pageReadContinuation) return;
+        // Record the just-finished page as its own bout BEFORE we fetch the next page.
+        this._flushReadingBout();
         const cont = this._pageReadContinuation;
         let nextText = null;
         try { nextText = await cont(); } catch (_) {}
@@ -455,6 +464,17 @@ class FastyApp {
             return;
         }
 
+        // Open a new reading bout if we don't have one (resuming from pause keeps the open bout).
+        if (!this._bout) {
+            this._bout = {
+                wordsAtStart: this.currentWordIndex,
+                startTime: Date.now(),
+                wpmAtStart: this.wpm,
+                sourceDocId: this.currentDoc?.id || null,
+                sourcePasteId: this._currentSessionId || null,
+            };
+        }
+
         this.isPlaying = true;
         this.isPaused = false;
         this.hideStatus();
@@ -466,6 +486,28 @@ class FastyApp {
         // Auto-save every 5 seconds while playing
         if (!this._autosaveInterval) {
             this._autosaveInterval = setInterval(() => this.saveCurrentProgress(), 5000);
+        }
+    }
+
+    /**
+     * Record a finished reading bout to the cloud (Pro & free both call this —
+     * server silently drops accidental sessions and free users still feed the
+     * leaderboard from their reading).
+     */
+    async _flushReadingBout() {
+        if (!this._bout) return;
+        const wordsRead = this.currentWordIndex - this._bout.wordsAtStart;
+        const durationSeconds = Math.round((Date.now() - this._bout.startTime) / 1000);
+        const wpm = this._bout.wpmAtStart;
+        const documentId = this._bout.sourceDocId;
+        const pasteSessionId = this._bout.sourcePasteId;
+        this._bout = null;
+        if (wordsRead < 20 || durationSeconds < 10) return; // matches server-side floor
+        try {
+            const { recordReadingSession } = await import('./src/cloud.js');
+            await recordReadingSession({ wordsRead, wpm, durationSeconds, documentId, pasteSessionId });
+        } catch (err) {
+            console.warn('record reading session failed:', err.message);
         }
     }
     
@@ -490,6 +532,7 @@ class FastyApp {
         }
 
         this.saveCurrentProgress();
+        this._flushReadingBout();
 
         if (this.hasStarted && this.currentWordIndex < this.words.length) {
             this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
