@@ -8,6 +8,7 @@ import { initImportModal, onDocumentImported } from './src/import-modal.js';
 import { initLibrary, refresh as refreshLibrary } from './src/library.js';
 import { initViewSwitcher, setView, registerView } from './src/view-switcher.js';
 import { initSelectionReader } from './src/selection-reader.js';
+import { initPasteSessions, saveSession as savePasteSession, onSessionOpened, setActive as setActiveSession } from './src/paste-sessions.js';
 
 class FastyApp {
     constructor() {
@@ -360,24 +361,33 @@ class FastyApp {
     
     startReading() {
         const text = this.elements.textInput.value;
-        
+
         if (!text.trim()) {
             this.updateStatus('Paste text and press <kbd>Space</kbd> to start');
             return;
         }
-        
+
         if (!this.parseText(text)) {
             return;
         }
-        
+
         this.currentWordIndex = 0;
         this.currentParagraphIndex = 0;
         this.hasStarted = true;
-        
+
         this.updateWordCounter();
         this.displayCurrentWord();
         this.elements.wordDisplay.classList.add('visible');
-        
+
+        // Save this pasted text as a session so the user can find it later.
+        // If they loaded an existing session and started, we update that one.
+        savePasteSession({ existingId: this._currentSessionId, text })
+            .then(id => {
+                this._currentSessionId = id;
+                setActiveSession(id);
+            })
+            .catch(err => console.warn('Could not save paste session:', err));
+
         // Start playing
         this.play();
     }
@@ -749,7 +759,7 @@ class FastyApp {
      * Switch the whole app into "paste text" mode: clear any loaded document,
      * show the textarea, and prepare the RSVP reader for pasted input.
      */
-    async enterPasteMode() {
+    async enterPasteMode({ keepText = false } = {}) {
         this.pause();
         this.currentDoc = null;
         this._inSelectionMode = false;
@@ -774,15 +784,40 @@ class FastyApp {
         const { forceResetView } = await import('./src/view-switcher.js');
         if (forceResetView) forceResetView();
 
-        // Highlight nothing in the sidebar library.
+        // Clear active selection in both sidebar sections.
         const { setActive } = await import('./src/library.js');
         if (setActive) setActive(null);
+
+        if (!keepText) {
+            this._currentSessionId = null;
+            setActiveSession(null);
+            if (this.elements.textInput) this.elements.textInput.value = '';
+        }
 
         this.elements.wordDisplay.classList.remove('visible');
         this.clearWordDisplay();
         this.updateStatus('Paste text and press <kbd>Space</kbd> to start');
         const ta = this.elements.textInput;
         if (ta) ta.focus();
+    }
+
+    /**
+     * Re-open a saved paste session: switch to paste mode and load the text
+     * back into the textarea. Doesn't auto-play — user presses Space.
+     */
+    async openPasteSession(sessionId) {
+        const { getPasteSession } = await import('./src/storage.js');
+        const s = await getPasteSession(sessionId);
+        if (!s) return;
+        await this.enterPasteMode({ keepText: true });
+        this._currentSessionId = s.id;
+        if (this.elements.textInput) {
+            this.elements.textInput.value = s.text;
+            this.elements.textInput.focus();
+            this.elements.textInput.setSelectionRange(0, 0);
+        }
+        setActiveSession(s.id);
+        this.updateStatus('Press <kbd>Space</kbd> to start');
     }
 
     /**
@@ -1049,8 +1084,10 @@ document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initImportModal();
     initLibrary();
+    initPasteSessions();
     onDocumentImported(() => refreshLibrary());
     window.fastyApp = new FastyApp();
+    onSessionOpened((id) => window.fastyApp.openPasteSession(id));
     initSelectionReader((text) => window.fastyApp.startSelectionRead(text));
     registerView('txt', () => import('./src/views/faithful-text.js'));
     registerView('url', () => import('./src/views/faithful-text.js'));

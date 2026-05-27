@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=12">
+    <link rel="stylesheet" href="styles.css?v=13">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -34,12 +34,34 @@
                 </button>
             </div>
 
-            <div class="sidebar-section-label">Library</div>
-            <div class="sidebar-library" id="sidebar-library">
-                <div class="sidebar-library-empty" id="sidebar-library-empty">
-                    <p>No documents yet.</p>
-                    <p class="muted">Click Import to add one.</p>
-                </div>
+            <div class="sidebar-scroll">
+                <!-- Library section -->
+                <details class="sidebar-section" id="section-library" open>
+                    <summary class="sidebar-section-header">
+                        <svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                        <span>Library</span>
+                    </summary>
+                    <div class="sidebar-library" id="sidebar-library">
+                        <div class="sidebar-library-empty" id="sidebar-library-empty">
+                            <p>No documents yet.</p>
+                            <p class="muted">Click Import to add one.</p>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Pasted texts (sessions) -->
+                <details class="sidebar-section" id="section-sessions" open>
+                    <summary class="sidebar-section-header">
+                        <svg class="caret" width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
+                        <span>Pasted texts</span>
+                    </summary>
+                    <div class="sidebar-sessions" id="sidebar-sessions">
+                        <div class="sidebar-library-empty" id="sidebar-sessions-empty">
+                            <p>No pasted texts yet.</p>
+                            <p class="muted">Paste text and press Space to save it.</p>
+                        </div>
+                    </div>
+                </details>
             </div>
 
             <div class="sidebar-footer">
@@ -183,6 +205,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=12"></script>
+    <script type="module" src="app.js?v=13"></script>
 </body>
 </html>

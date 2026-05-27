@@ -15,7 +15,7 @@
  */
 
 const DB_NAME = 'fasty';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise = null;
 
@@ -30,6 +30,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains('progress')) {
         db.createObjectStore('progress', { keyPath: 'documentId' });
+      }
+      if (!db.objectStoreNames.contains('paste_sessions')) {
+        db.createObjectStore('paste_sessions', { keyPath: 'id' });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -98,4 +101,37 @@ export async function getProgress(id) {
 export async function saveProgress(id, progress) {
   const t = await tx(['progress'], 'readwrite');
   await awaitRequest(t.objectStore('progress').put({ ...progress, documentId: id, updatedAt: Date.now() }));
+}
+
+// ==================== Paste Sessions ====================
+// A "paste session" is a saved chunk of pasted text the user can re-open
+// from the sidebar (like a past chat conversation in ChatGPT/Claude).
+
+export async function listPasteSessions() {
+  const t = await tx(['paste_sessions']);
+  const items = await awaitRequest(t.objectStore('paste_sessions').getAll());
+  return items.sort((a, b) => (b.lastUsedAt || b.createdAt) - (a.lastUsedAt || a.createdAt));
+}
+
+export async function getPasteSession(id) {
+  const t = await tx(['paste_sessions']);
+  return awaitRequest(t.objectStore('paste_sessions').get(id));
+}
+
+export async function savePasteSession(session) {
+  const t = await tx(['paste_sessions'], 'readwrite');
+  await awaitRequest(t.objectStore('paste_sessions').put(session));
+}
+
+export async function deletePasteSession(id) {
+  const t = await tx(['paste_sessions'], 'readwrite');
+  await awaitRequest(t.objectStore('paste_sessions').delete(id));
+}
+
+/** Make a short title from the start of the pasted text. */
+export function deriveSessionTitle(text) {
+  const trimmed = (text || '').replace(/\s+/g, ' ').trim();
+  if (!trimmed) return 'Empty paste';
+  const words = trimmed.split(' ').slice(0, 7).join(' ');
+  return words.length > 50 ? words.slice(0, 47) + '…' : words;
 }
