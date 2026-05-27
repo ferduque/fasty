@@ -13,7 +13,7 @@ import * as cloud from './src/cloud.js';
 import { initAuthUI, lockAuthOpen, unlockAuthClosed } from './src/auth-ui.js';
 import { migrateLocalToCloudIfNeeded } from './src/migration.js';
 import { pullCloudIntoLocal } from './src/storage.js';
-import { initTiers } from './src/tiers.js';
+import { initTiers, onTierChange } from './src/tiers.js';
 import { maybeShowOnboarding } from './src/onboarding.js';
 
 class FastyApp {
@@ -243,6 +243,22 @@ class FastyApp {
     
     onPauseChange() {
         this.sentencePause = parseInt(this.elements.pauseSelect.value);
+    }
+
+    rebuildWpmDropdown(maxWpm) {
+        const select = this.elements.wpmSelect;
+        if (!select) return;
+        const wanted = [250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900]
+            .filter(v => v <= maxWpm);
+        if (wanted.length === 0) return;
+        const currentValue = parseInt(select.value, 10);
+        select.innerHTML = wanted.map(v => `<option value="${v}">${v}</option>`).join('');
+        const clamped = wanted.includes(currentValue) ? currentValue : wanted[wanted.length - 1];
+        select.value = String(clamped);
+        if (this.wpm !== clamped) {
+            this.wpm = clamped;
+            this.onWpmChange();
+        }
     }
     
     /**
@@ -1102,6 +1118,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Register tier listener before cloud.init() so the initial auth-fire reaches it.
     initTiers();
+    onTierChange((_tier, caps) => {
+        if (window.fastyApp) window.fastyApp.rebuildWpmDropdown(caps.maxWpm);
+    });
 
     // Cloud sync (Supabase). Runs only if .env has real keys.
     cloud.init().then(async () => {
