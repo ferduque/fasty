@@ -54,12 +54,17 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
     if (sel && !sel.isCollapsed && sel.toString().trim()) return;
     if (!window.fastyApp) return;
     const startIndex = current;
-    window.fastyApp.startPageRead(pages[startIndex], () => {
-      const nextIdx = current + 1;
-      if (nextIdx >= pages.length) return null;
-      current = nextIdx;
-      render();
-      return pages[current];
+    window.fastyApp.readPageOrResume({
+      docPage: startIndex,
+      text: pages[startIndex],
+      getNextText: () => {
+        const nextIdx = current + 1;
+        if (nextIdx >= pages.length) return null;
+        current = nextIdx;
+        render();
+        window.fastyApp.setActiveDocPage?.(current);
+        return pages[current];
+      },
     });
   };
   pageEl.addEventListener('click', onPageClick);

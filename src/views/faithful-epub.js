@@ -81,20 +81,22 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
       if (sel && !sel.isCollapsed && sel.toString().trim()) return;
       const text = visiblePageText();
       if (!text || !window.fastyApp) return;
-      window.fastyApp.startPageRead(text, async () => {
-        // Turn to the next page and wait for the relocated event to settle.
+      // Record which virtual page we're starting from so "Back to page" lands here.
+      const loc = rendition.currentLocation();
+      const startPage = loc?.start ? mapLocToVirtualPage(loc.start.cfi) : 0;
+      window.fastyApp.readPageOrResume({ docPage: startPage, text, getNextText: async () => {
         const settled = new Promise(resolve => {
           const onceRelocated = () => { rendition.off('relocated', onceRelocated); resolve(); };
           rendition.on('relocated', onceRelocated);
         });
-        const navState = await rendition.next();
-        // If we were at the last page, rendition.next() resolves but no new
-        // page is shown; detect that by comparing text before/after.
+        await rendition.next();
         await Promise.race([settled, new Promise(r => setTimeout(r, 400))]);
         const next = visiblePageText();
         if (!next || next === text) return null;
+        const loc2 = rendition.currentLocation();
+        if (loc2?.start) window.fastyApp.setActiveDocPage?.(mapLocToVirtualPage(loc2.start.cfi));
         return next;
-      });
+      } });
     });
   });
 

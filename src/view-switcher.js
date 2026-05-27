@@ -59,13 +59,25 @@ export async function setView(name) {
     document.querySelector('.app-container').classList.add('view-faithful');
     try {
       const { mount } = await factory();
-      const initialPage = appRef.currentDoc.wordToPage[appRef.currentWordIndex] || 0;
+      // Pick the initial page: if we're returning from fasty (selection) mode,
+      // use the page reported by the view that started the read. Otherwise use
+      // the page derived from the current word index of the doc.
+      const fromActive = (typeof appRef.getActiveDocPage === 'function') ? appRef.getActiveDocPage() : null;
+      const initialPage = (fromActive != null && Number.isFinite(fromActive))
+        ? fromActive
+        : (appRef.currentDoc.wordToPage[appRef.currentWordIndex] || 0);
       mounted = await mount(container, appRef.currentDoc, initialPage, {
         onPageChange: (page) => {
           document.getElementById('page-input').value = page + 1;
+          // Keep the visible page indicator in sync as the user scrolls/turns.
+          const pageInfo = document.getElementById('doc-page-info');
+          if (pageInfo && appRef.currentDoc) {
+            pageInfo.textContent = `Page ${page + 1} / ${appRef.currentDoc.totalPages}`;
+          }
           for (let i = 0; i < appRef.currentDoc.wordToPage.length; i++) {
             if (appRef.currentDoc.wordToPage[i] === page) { appRef.currentWordIndex = i; break; }
           }
+          appRef._activeDocPage = page;
           appRef.saveCurrentProgress();
         },
       });

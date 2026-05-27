@@ -125,7 +125,7 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
         return;
       }
       if (cursorPage !== pageIndex) pageDivs[cursorPage]?.scrollIntoView({ block: 'start' });
-      window.fastyApp.startPageRead(startText, async () => {
+      const getNextText = async () => {
         // Advance to the next text-bearing page on Space.
         let next = cursorPage + 1;
         while (next < pdf.numPages) {
@@ -133,12 +133,14 @@ export async function mount(container, doc, initialPage, { onPageChange }) {
           if (pageTexts[next] && pageTexts[next].trim()) {
             cursorPage = next;
             pageDivs[next]?.scrollIntoView({ block: 'start' });
+            window.fastyApp.setActiveDocPage?.(cursorPage);
             return pageTexts[next];
           }
           next++;
         }
         return null;
-      });
+      };
+      window.fastyApp.readPageOrResume({ docPage: cursorPage, text: startText, getNextText });
     };
     div.addEventListener('click', onPageClick);
     cleanups.push(() => div.removeEventListener('click', onPageClick));

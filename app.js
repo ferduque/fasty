@@ -129,6 +129,9 @@ class FastyApp {
         this.hideStatus();
         this.hasStarted = false;
         this.isPaused = false;
+        this._activeDocPage = (doc.wordToPage[this.currentWordIndex] || 0);
+        this._fastyResume = null;
+        this._showBackButton(false);
 
         this.attachTopbarHandlers();
         // Default view = Faithful for any imported document.
@@ -726,6 +729,94 @@ class FastyApp {
         // Exit button: close the current document, return to clean state.
         const exitBtn = document.getElementById('exit-doc');
         if (exitBtn) exitBtn.addEventListener('click', () => this.closeCurrentDoc());
+
+        // "← Back to page" button: leave fasty (selection RSVP) and return
+        // to the Faithful view scrolled to the page currently being read.
+        const backBtn = document.getElementById('back-to-page');
+        if (backBtn) backBtn.addEventListener('click', () => this.backToFaithfulPage());
+    }
+
+    /**
+     * Exit the fasty (selection RSVP) reader and return to Faithful at the
+     * page the current word belongs to. The faithful view receives the target
+     * page via this.getActiveDocPage() (set by the view that started the read).
+     */
+    async backToFaithfulPage() {
+        if (!this._inSelectionMode || !this.currentDoc) return;
+        this.pause();
+        // Stash a snapshot so the user can resume from this word if they click
+        // the same page again in Faithful. Cleared when they click any other page.
+        this._fastyResume = {
+            docPage: this._activeDocPage,
+            wordIndex: this.currentWordIndex,
+            words: this.words.slice(),
+            paragraphs: this.paragraphs.map(p => ({ ...p, words: p.words.slice() })),
+        };
+        this._inSelectionMode = false;
+        this._pageReadContinuation = null;
+        this.words = [];
+        this.paragraphs = [];
+        this.currentWordIndex = 0;
+        this.currentParagraphIndex = 0;
+        this.hasStarted = false;
+        this.elements.wordDisplay.classList.remove('visible');
+        this.clearWordDisplay();
+        this.hideStatus();
+        this._showBackButton(false);
+        const { setView, forceResetView } = await import('./src/view-switcher.js');
+        if (forceResetView) forceResetView();
+        await setView('faithful');
+    }
+
+    /**
+     * Entry point for "click a page in Faithful". If we previously paused on
+     * THIS exact page via ← Back to page, resume from the same word; otherwise
+     * start a fresh page-read. `getNextText` is always the FRESH continuation
+     * from the current view mount (the saved one would close over stale state).
+     */
+    async readPageOrResume({ docPage, text, getNextText }) {
+        this._activeDocPage = docPage;
+        if (this._fastyResume && this._fastyResume.docPage === docPage) {
+            const rs = this._fastyResume;
+            this._fastyResume = null;
+            // Re-enter selection mode with the stashed state.
+            this.pause();
+            this._inSelectionMode = true;
+            this._pageReadContinuation = typeof getNextText === 'function' ? getNextText : null;
+            this.words = rs.words;
+            this.paragraphs = rs.paragraphs;
+            this.currentWordIndex = rs.wordIndex;
+            this.currentParagraphIndex = 0;
+            this.hasStarted = true;
+            this.isPaused = false;
+
+            const { setView, getView } = await import('./src/view-switcher.js');
+            if (getView() === 'faithful') await setView('rsvp');
+
+            const topbar = document.getElementById('reader-topbar');
+            if (topbar) topbar.hidden = false;
+            const titleEl = document.getElementById('doc-title');
+            if (titleEl) titleEl.textContent = this.currentDoc.title;
+            const pageInfo = document.getElementById('doc-page-info');
+            if (pageInfo) pageInfo.textContent = `Page ${docPage + 1} / ${this.currentDoc.totalPages} · fasty (resumed)`;
+            this._showBackButton(true);
+
+            this.elements.wordDisplay.classList.add('visible');
+            this.displayCurrentWord();
+            this.updateWordCounter();
+            this.updateProgressBar();
+            this.play();
+            return;
+        }
+        // Clicked a different page (or no resume state) — start fresh.
+        this._fastyResume = null;
+        await this.startPageRead(text, getNextText);
+    }
+
+    /** Toggle the "Back to page" button visibility. */
+    _showBackButton(show) {
+        const btn = document.getElementById('back-to-page');
+        if (btn) btn.hidden = !show;
     }
 
     /**
@@ -737,6 +828,9 @@ class FastyApp {
         this.currentDoc = null;
         this._inSelectionMode = false;
         this._pageReadContinuation = null;
+        this._activeDocPage = null;
+        this._fastyResume = null;
+        this._showBackButton(false);
         this.words = [];
         this.paragraphs = [];
         this.currentWordIndex = 0;
@@ -839,6 +933,25 @@ class FastyApp {
         await this.startSelectionRead(text);
     }
 
+    /**
+     * Called by faithful views to report which doc page the active fasty
+     * reading is currently on. Used by the "← Back to page" button to scroll
+     * back to the right page when leaving fasty mode.
+     */
+    setActiveDocPage(pageIndex) {
+        this._activeDocPage = pageIndex;
+        // Reflect in the topbar's page indicator.
+        if (this._inSelectionMode && this.currentDoc) {
+            const pageInfo = document.getElementById('doc-page-info');
+            if (pageInfo) pageInfo.textContent = `Page ${pageIndex + 1} / ${this.currentDoc.totalPages} · fasty`;
+        }
+    }
+
+    /** Read by the view-switcher when re-mounting Faithful from selection mode. */
+    getActiveDocPage() {
+        return this._activeDocPage ?? 0;
+    }
+
     async startSelectionRead(text) {
         if (!text || !text.trim()) return;
         this.pause();
@@ -858,13 +971,13 @@ class FastyApp {
         const topbar = document.getElementById('reader-topbar');
         if (topbar) topbar.hidden = false;
         const titleEl = document.getElementById('doc-title');
-        if (titleEl && this.currentDoc) titleEl.textContent = `${this.currentDoc.title} — selection`;
-        const chapterSel = document.getElementById('chapter-select');
-        if (chapterSel) chapterSel.innerHTML = '<option>Selection</option>';
-        const totalPagesEl = document.getElementById('total-pages');
-        if (totalPagesEl) totalPagesEl.textContent = '1';
-        const pageInput = document.getElementById('page-input');
-        if (pageInput) { pageInput.value = 1; pageInput.disabled = true; }
+        if (titleEl && this.currentDoc) titleEl.textContent = this.currentDoc.title;
+        const pageInfo = document.getElementById('doc-page-info');
+        if (pageInfo && this.currentDoc) {
+            pageInfo.textContent = `Page ${(this._activeDocPage ?? 0) + 1} / ${this.currentDoc.totalPages} · fasty`;
+        }
+        // Reveal the "← Back to page" button (only meaningful when a doc is loaded).
+        this._showBackButton(!!this.currentDoc);
 
         this.elements.wordDisplay.classList.add('visible');
         this.displayCurrentWord();
