@@ -936,3 +936,23 @@ body.auth-required .modal-backdrop {
   pointer-events: auto;
 }
 
+/* Onboarding modal — first-time-sign-in name + country + opt-in. */
+.onboarding-modal { min-width: 420px; max-width: 480px; }
+.onboarding-form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.onboarding-field { display: flex; flex-direction: column; gap: 4px; }
+.onboarding-field > span {
+  font-size: 11px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500;
+}
+.onboarding-field input, .onboarding-field select {
+  padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 6px;
+  background: var(--bg); color: var(--text); font-family: inherit; font-size: 14px;
+}
+.onboarding-check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-secondary);
+}
+.onboarding-buttons {
+  display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;
+}
+

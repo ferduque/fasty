@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=17">
+    <link rel="stylesheet" href="styles.css?v=18">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -181,6 +181,33 @@
 
     <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
+    <div class="modal-backdrop" id="onboarding-backdrop" hidden>
+        <div class="modal onboarding-modal" role="dialog" aria-labelledby="onboarding-title">
+            <h2 id="onboarding-title">Welcome to Fasty</h2>
+            <p class="muted">Tell us a name and country we can show on the leaderboard. You can change these any time in Settings, or skip for full privacy.</p>
+            <form class="onboarding-form" id="onboarding-form">
+                <label class="onboarding-field">
+                    <span>Display name</span>
+                    <input type="text" id="onb-name" maxlength="40" placeholder="e.g. ferdub" />
+                </label>
+                <label class="onboarding-field">
+                    <span>Country</span>
+                    <select id="onb-country">
+                        <option value="">(choose a country)</option>
+                    </select>
+                </label>
+                <label class="onboarding-check">
+                    <input type="checkbox" id="onb-optin" checked />
+                    <span>Show me on the public leaderboard</span>
+                </label>
+                <div class="onboarding-buttons">
+                    <button type="button" class="btn-ghost" id="onb-skip">Skip</button>
+                    <button type="submit" class="btn-primary" id="onb-save">Save and continue</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal-backdrop" id="import-backdrop" hidden>
         <div class="modal" role="dialog" aria-labelledby="import-title">
             <button class="modal-close" id="import-close" aria-label="Close">✕</button>
@@ -205,6 +232,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=17"></script>
+    <script type="module" src="app.js?v=18"></script>
 </body>
 </html>

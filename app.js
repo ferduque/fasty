@@ -14,6 +14,7 @@ import { initAuthUI, lockAuthOpen, unlockAuthClosed } from './src/auth-ui.js';
 import { migrateLocalToCloudIfNeeded } from './src/migration.js';
 import { pullCloudIntoLocal } from './src/storage.js';
 import { initTiers } from './src/tiers.js';
+import { maybeShowOnboarding } from './src/onboarding.js';
 
 class FastyApp {
     constructor() {
@@ -1115,6 +1116,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 await migrateLocalToCloudIfNeeded();
                 // And pulls anything else from the account back down.
                 await pullCloudIntoLocal();
+                // First-time-sign-in: prompt for display name + country + opt-in.
+                await maybeShowOnboarding();
             } else {
                 lockAuthOpen();
             }
