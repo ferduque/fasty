@@ -59,7 +59,7 @@ src/
 - **No automated tests** (the project has none; matches the previous feature). Each task ends with a verification step against the running app at `http://localhost:8080` and / or Supabase MCP queries.
 - **Cache buster**: bump `?v=N` on `styles.css` / `app.js` in `index.html` whenever those files change.
 - **Commits**: small, one per task, conventional voice ("Add X", "Fix Y"). Co-Authored-By line is added automatically by the harness when committing.
-- **Don't break anonymous mode mid-plan.** Sign-in becomes mandatory in Task 9; until then the app must keep working for not-signed-in users so we can verify intermediate tasks.
+- **Don't break anonymous mode mid-plan.** Sign-in becomes mandatory in Task 12; until then the app must keep working for not-signed-in users so we can verify intermediate tasks.
 - **Pro = SQL toggle**: to test Pro behavior, run `update public.profiles set tier='pro' where user_id = '<your_user_id>';` against the project.
 
 ---
@@ -1178,6 +1178,7 @@ Add `this._flushReadingBout();` calls in:
 - `pause()` (at the end)
 - `closeCurrentDoc()`
 - `enterPasteMode()`
+- `_advancePageRead()` — at the very start, BEFORE awaiting the continuation, so the bout for the page just finished is recorded as its own session.
 - the `beforeunload` listener
 
 - [ ] **Step 4:** Verify by reading a doc for 30+ seconds, pausing, then in SQL Editor:
