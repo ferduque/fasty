@@ -64,16 +64,29 @@ alter table public.profiles enable row level security;
 create policy "profiles owner read" on public.profiles
   for select using (user_id = auth.uid());
 
--- Users may update display_name / country_code / leaderboard_optin, NOT tier or counters.
--- Tier transitions only via service role (webhook). Counters only via use_url_import() RPC.
-create policy "profiles owner safe update" on public.profiles
-  for update using (user_id = auth.uid())
-  with check (
-    user_id = auth.uid()
-    and tier = (select tier from public.profiles where user_id = auth.uid())
-    and url_imports_used = (select url_imports_used from public.profiles where user_id = auth.uid())
-    and url_imports_month_start = (select url_imports_month_start from public.profiles where user_id = auth.uid())
-  );
+-- Users may update their own row, but a BEFORE UPDATE trigger forces protected
+-- columns (tier, url_imports_used, url_imports_month_start) back to their old
+-- values for non-service-role callers. Cleaner than RLS subqueries and easier
+-- to test.
+create policy "profiles owner update" on public.profiles
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create or replace function public.lock_profile_protected_columns()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  -- Service role (used by webhooks) bypasses this guard.
+  if (select auth.role()) = 'service_role' then return new; end if;
+  new.tier := old.tier;
+  new.url_imports_used := old.url_imports_used;
+  new.url_imports_month_start := old.url_imports_month_start;
+  new.created_at := old.created_at;
+  return new;
+end; $$;
+
+drop trigger if exists lock_profile_protected on public.profiles;
+create trigger lock_profile_protected
+  before update on public.profiles
+  for each row execute function public.lock_profile_protected_columns();
 ```
 
 ### 3.2 `reading_sessions`
@@ -86,7 +99,7 @@ create table public.reading_sessions (
   document_id       uuid references public.documents on delete set null,
   paste_session_id  uuid references public.paste_sessions on delete set null,
   words_read        integer not null check (words_read > 0),
-  wpm               integer not null check (wpm between 50 and 2000),
+  wpm               integer not null check (wpm between 50 and 2000), -- wider than the client cap (450/900) by design — future-proof for higher tiers
   duration_seconds  integer not null check (duration_seconds > 0),
   started_at        timestamptz not null default now()
 );
@@ -237,7 +250,7 @@ First time a user signs in (no `profiles.display_name` set yet), show a one-scre
 >
 > [Skip] [Save and continue]
 
-"Skip" → profile gets `display_name = NULL`, `leaderboard_optin = false`. They can flip back on in Settings any time.
+"Skip" → profile gets `display_name = NULL`, `leaderboard_optin = false` **regardless of the checkbox state** (Skip is treated as full opt-out). They can flip back on in Settings any time.
 
 ---
 
@@ -296,7 +309,9 @@ The server-side function silently drops rows under the floor (10 s OR 20 words).
 
 ## 10. Country detection
 
-On signup, default the country selector to whatever the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone` maps to (e.g. `Europe/Amsterdam` → `NL`). A small client-side timezone-to-country map handles the common cases; ambiguous timezones fall back to the global tab. The user can override in onboarding or Settings.
+On signup, default the country selector to whatever the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone` maps to (e.g. `Europe/Amsterdam` → `NL`).
+
+**Deliverable:** ship a small hand-rolled timezone-to-country map (~50 lines) covering every IANA timezone whose name starts with `Europe/`, `America/`, `Asia/`, `Australia/`, plus the half-dozen common one-offs (`Africa/Cairo` → `EG`, etc.). Unknown timezones default to *no preselection* (the user picks manually in the dropdown). No third-party libraries.
 
 We **do not** call any geo-IP service. No IP lookups, no third-party dependencies, no GDPR exposure beyond "user told us they're in NL".
 
@@ -310,6 +325,16 @@ We **do not** call any geo-IP service. No IP lookups, no third-party dependencie
 - **Upgrade modal**: title "Pro — coming soon" · benefit bullets · email field · "Notify me at launch" button
 
 ---
+
+## 11.1 Downgrade behavior
+
+If a Pro user is ever flipped back to Free (refund, manual SQL, future webhook):
+
+- The cap triggers re-enforce immediately: any new `insert into documents/paste_sessions` over the 4/8 cap raises an exception. **Reads are unaffected**; existing rows stay visible until the user deletes down to the cap. (Same behavior as "library full" today.)
+- Cloud sync stops mirroring; their IDB cache remains intact. New writes go to IDB only.
+- WPM dropdown re-caps at 450 next time `tiers.getCaps()` refreshes.
+
+No "destructive auto-delete" — we never throw away the user's data on a downgrade.
 
 ## 12. Out of scope (explicit)
 
