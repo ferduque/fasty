@@ -10,7 +10,7 @@ import { initViewSwitcher, setView, registerView } from './src/view-switcher.js'
 import { initSelectionReader } from './src/selection-reader.js';
 import { initPasteSessions, saveSession as savePasteSession, onSessionOpened, setActive as setActiveSession, refresh as refreshPasteSessions } from './src/paste-sessions.js';
 import * as cloud from './src/cloud.js';
-import { initAuthUI } from './src/auth-ui.js';
+import { initAuthUI, lockAuthOpen, unlockAuthClosed } from './src/auth-ui.js';
 import { migrateLocalToCloudIfNeeded } from './src/migration.js';
 import { pullCloudIntoLocal } from './src/storage.js';
 import { initTiers } from './src/tiers.js';
@@ -1105,12 +1105,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cloud sync (Supabase). Runs only if .env has real keys.
     cloud.init().then(async () => {
         await initAuthUI();
+        // Apply the initial gate state based on the session loaded by cloud.init().
+        if (cloud.currentUser()) unlockAuthClosed();
+        else lockAuthOpen();
         cloud.onAuthChange(async (user) => {
             if (user) {
+                unlockAuthClosed();
                 // First sign-in on this device pushes existing local data up.
                 await migrateLocalToCloudIfNeeded();
                 // And pulls anything else from the account back down.
                 await pullCloudIntoLocal();
+            } else {
+                lockAuthOpen();
             }
             // Refresh sidebar either way (sign-in adds rows, sign-out keeps local).
             refreshLibrary();

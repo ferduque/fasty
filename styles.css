@@ -924,3 +924,15 @@ body {
 .auth-switch a { color: var(--accent); text-decoration: none; }
 .auth-switch a:hover { text-decoration: underline; }
 
+/* Mandatory sign-in gate — when no user is authenticated, the app body is
+   blurred and inert behind the auth modal. */
+body.auth-required .app-container > * {
+  filter: blur(8px) brightness(0.6);
+  pointer-events: none;
+  user-select: none;
+}
+body.auth-required .modal-backdrop {
+  filter: none;
+  pointer-events: auto;
+}
+

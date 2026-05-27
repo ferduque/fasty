@@ -88,6 +88,7 @@ function buildAuthModal() {
   modal = document.createElement('div');
   modal.className = 'modal-backdrop';
   modal.id = 'auth-backdrop';
+  modal.dataset.mode = 'optional';
   modal.hidden = true;
   modal.innerHTML = `
     <div class="modal auth-modal" role="dialog" aria-labelledby="auth-title">
@@ -129,9 +130,15 @@ function buildAuthModal() {
   modeLabel = modal.querySelector('#auth-mode-label');
   errorEl = modal.querySelector('#auth-error');
 
-  modal.querySelector('#auth-close').addEventListener('click', closeModal);
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+  modal.querySelector('#auth-close').addEventListener('click', () => {
+    if (modal.dataset.mode !== 'required') closeModal();
+  });
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal && modal.dataset.mode !== 'required') closeModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden && modal.dataset.mode !== 'required') closeModal();
+  });
 
   modal.querySelector('#auth-form').addEventListener('submit', onSubmit);
   googleBtn.addEventListener('click', onGoogle);
@@ -219,4 +226,27 @@ function showError(msg) {
   if (!msg) { errorEl.hidden = true; errorEl.textContent = ''; return; }
   errorEl.textContent = msg;
   errorEl.hidden = false;
+}
+
+// ============= Mandatory sign-in gate =============
+
+export function lockAuthOpen() {
+  if (!modal) return;
+  mode = 'sign-in';
+  updateModeUI();
+  modal.dataset.mode = 'required';
+  modal.hidden = false;
+  document.body.classList.add('auth-required');
+  const closeBtn = modal.querySelector('#auth-close');
+  if (closeBtn) closeBtn.style.display = 'none';
+  setTimeout(() => emailInput?.focus(), 0);
+}
+
+export function unlockAuthClosed() {
+  if (!modal) return;
+  modal.dataset.mode = 'optional';
+  modal.hidden = true;
+  document.body.classList.remove('auth-required');
+  const closeBtn = modal.querySelector('#auth-close');
+  if (closeBtn) closeBtn.style.display = '';
 }
