@@ -956,3 +956,13 @@ body.auth-required .modal-backdrop {
   display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;
 }
 
+/* Sidebar section cap badge — "X / cap" next to Library / Pasted texts headers. */
+.section-cap-badge {
+  margin-left: auto;
+  font-size: 10px; font-weight: 500;
+  padding: 2px 6px; border-radius: 999px;
+  background: var(--bg-tertiary); color: var(--text-muted);
+}
+.section-cap-badge:empty { display: none; }
+.section-cap-badge.at-cap { background: var(--accent); color: white; }
+

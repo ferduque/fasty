@@ -1120,6 +1120,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initTiers();
     onTierChange((_tier, caps) => {
         if (window.fastyApp) window.fastyApp.rebuildWpmDropdown(caps.maxWpm);
+        refreshLibrary();
+        refreshPasteSessions();
     });
 
     // Cloud sync (Supabase). Runs only if .env has real keys.

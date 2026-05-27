@@ -5,6 +5,7 @@
  */
 import { listPasteSessions, deletePasteSession, savePasteSession, deriveSessionTitle, getPasteSession } from './storage.js';
 import { toast } from './toasts.js';
+import { getCaps } from './tiers.js';
 
 const onSessionSelected = [];
 export function onSessionOpened(fn) { onSessionSelected.push(fn); }
@@ -23,10 +24,19 @@ export async function refresh() {
   Array.from(list.querySelectorAll('.session-item')).forEach(n => n.remove());
   if (sessions.length === 0) {
     if (emptyState) emptyState.hidden = false;
-    return;
+  } else {
+    if (emptyState) emptyState.hidden = true;
+    for (const s of sessions) list.appendChild(renderItem(s));
   }
-  if (emptyState) emptyState.hidden = true;
-  for (const s of sessions) list.appendChild(renderItem(s));
+  updateCapBadge(sessions.length);
+}
+
+function updateCapBadge(count) {
+  const badge = document.getElementById('sessions-cap-badge');
+  if (!badge) return;
+  const { maxSessions } = getCaps();
+  badge.textContent = `${count} / ${maxSessions}`;
+  badge.classList.toggle('at-cap', count >= maxSessions);
 }
 
 /** Highlight the active session row (or clear when null). */

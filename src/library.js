@@ -4,6 +4,7 @@
  */
 import { listDocuments, deleteDocument } from './storage.js';
 import { toast } from './toasts.js';
+import { getCaps } from './tiers.js';
 
 const onDocumentSelected = [];
 export function onLibraryDocumentSelected(fn) { onDocumentSelected.push(fn); }
@@ -22,10 +23,19 @@ export async function refresh() {
   Array.from(list.querySelectorAll('.lib-item')).forEach(n => n.remove());
   if (docs.length === 0) {
     if (emptyState) emptyState.hidden = false;
-    return;
+  } else {
+    if (emptyState) emptyState.hidden = true;
+    for (const d of docs) list.appendChild(renderItem(d));
   }
-  if (emptyState) emptyState.hidden = true;
-  for (const d of docs) list.appendChild(renderItem(d));
+  updateCapBadge(docs.length);
+}
+
+function updateCapBadge(count) {
+  const badge = document.getElementById('library-cap-badge');
+  if (!badge) return;
+  const { maxDocs } = getCaps();
+  badge.textContent = `${count} / ${maxDocs}`;
+  badge.classList.toggle('at-cap', count >= maxDocs);
 }
 
 /** Highlight the active library row (or clear when null). */
