@@ -13,6 +13,7 @@ import * as cloud from './src/cloud.js';
 import { initAuthUI } from './src/auth-ui.js';
 import { migrateLocalToCloudIfNeeded } from './src/migration.js';
 import { pullCloudIntoLocal } from './src/storage.js';
+import { initTiers } from './src/tiers.js';
 
 class FastyApp {
     constructor() {
@@ -1098,7 +1099,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.fastyApp = new FastyApp();
     onSessionOpened((id) => window.fastyApp.openPasteSession(id));
 
-    // Cloud sync (Supabase). Runs only if src/config.js has real keys.
+    // Register tier listener before cloud.init() so the initial auth-fire reaches it.
+    initTiers();
+
+    // Cloud sync (Supabase). Runs only if .env has real keys.
     cloud.init().then(async () => {
         await initAuthUI();
         cloud.onAuthChange(async (user) => {
