@@ -53,18 +53,18 @@ In the dashboard, open **Settings → API**. Copy two values:
 - **Project URL**
 - **anon public** key
 
-Then, in the repo:
+Then, in the repo root:
 
 ```bash
-cp src/config.example.js src/config.js
+cp .env.example .env
 ```
 
-Edit `src/config.js` and paste the two values into `SUPABASE_URL` and
-`SUPABASE_ANON_KEY`. (`src/config.js` is gitignored, so your keys never get
-committed.)
+Edit `.env` and paste the two values into `SUPABASE_URL` and
+`SUPABASE_ANON_KEY`. `.env` is gitignored, so your keys never get committed.
 
 The anon key is meant to be public — Row-Level Security in the DB is what
-protects users' data. **Never** put the `service_role` key in client code.
+protects users' data. **Never** put the `service_role` key in `.env` (or
+anywhere on the client).
 
 ## 6. Reload the app
 

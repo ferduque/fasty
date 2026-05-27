@@ -40,22 +40,44 @@ const authListeners = [];
 async function loadClient() {
   if (supabase) return supabase;
   if (configError) throw configError;
-  let config;
+  let env;
   try {
-    config = await import('./config.js');
+    const resp = await fetch('.env', { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    env = parseEnv(await resp.text());
   } catch (_) {
-    configError = new Error('src/config.js not found — cloud disabled');
+    configError = new Error('.env not found — cloud disabled');
     throw configError;
   }
-  if (!config.SUPABASE_URL || /YOUR_PROJECT|YOUR_ANON/.test(config.SUPABASE_URL + config.SUPABASE_ANON_KEY)) {
-    configError = new Error('src/config.js has placeholder values — cloud disabled');
+  const url = env.SUPABASE_URL;
+  const key = env.SUPABASE_ANON_KEY;
+  if (!url || !key || /YOUR_PROJECT|YOUR_ANON/.test(url + key)) {
+    configError = new Error('.env has placeholder values — cloud disabled');
     throw configError;
   }
   const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.45.0');
-  supabase = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY, {
+  supabase = createClient(url, key, {
     auth: { persistSession: true, autoRefreshToken: true },
   });
   return supabase;
+}
+
+/** Tiny .env parser: KEY=value lines, # comments, optional quotes around values. */
+function parseEnv(text) {
+  const out = {};
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (key) out[key] = val;
+  }
+  return out;
 }
 
 export async function isConfigured() {
