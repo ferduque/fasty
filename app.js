@@ -894,13 +894,21 @@ class FastyApp {
 
     syncTopbarPage() {
         if (!this.currentDoc) return;
-        const page = (this.currentDoc.wordToPage[this.currentWordIndex] || 0) + 1;
-        // Hidden DOM hook (kept for any legacy code paths)
+        let page;
+        const pageInfo = document.getElementById('doc-page-info');
+        if (this._inSelectionMode) {
+            // In fasty/selection mode, currentWordIndex is an index into the
+            // SELECTION's word array — not the doc-level word array. The doc
+            // page comes from _activeDocPage (set by the view that started/
+            // advanced the read).
+            page = (this._activeDocPage ?? 0) + 1;
+            if (pageInfo) pageInfo.textContent = `Page ${page} / ${this.currentDoc.totalPages} · fasty`;
+        } else {
+            page = (this.currentDoc.wordToPage[this.currentWordIndex] || 0) + 1;
+            if (pageInfo) pageInfo.textContent = `Page ${page} / ${this.currentDoc.totalPages}`;
+        }
         const pageInput = document.getElementById('page-input');
         if (pageInput) pageInput.value = page;
-        // Visible page indicator
-        const pageInfo = document.getElementById('doc-page-info');
-        if (pageInfo) pageInfo.textContent = `Page ${page} / ${this.currentDoc.totalPages}`;
     }
 
     // ==================== Auto-save Progress ====================
