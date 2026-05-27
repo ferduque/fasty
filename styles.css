@@ -1005,3 +1005,31 @@ body.auth-required .modal-backdrop {
 .lb-meta { font-size: 11px; color: var(--text-muted); text-align: right; }
 .lb-empty { text-align: center; color: var(--text-muted); padding: 40px 0; }
 
+/* Upgrade-to-Pro CTA in the sidebar footer + modal. */
+.upgrade-cta {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), #ff8585);
+  color: white; border: none; padding: 10px;
+  border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  margin-bottom: 10px;
+  transition: filter .15s;
+}
+.upgrade-cta:hover { filter: brightness(1.06); }
+
+.upgrade-modal { min-width: 420px; max-width: 480px; }
+.upgrade-features {
+  list-style: none; padding: 0; margin: 16px 0;
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13px;
+}
+.upgrade-soon { font-size: 13px; color: var(--text-secondary); margin-top: 16px; }
+.upgrade-form { display: flex; gap: 8px; margin-top: 8px; }
+.upgrade-form input {
+  flex: 1; padding: 8px 10px;
+  border: 1px solid var(--border-color); border-radius: 6px;
+  background: var(--bg); color: var(--text);
+  font-family: inherit;
+}
+.upgrade-thanks { color: var(--accent); margin-top: 8px; font-size: 13px; }
+

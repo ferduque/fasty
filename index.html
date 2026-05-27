@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=22">
+    <link rel="stylesheet" href="styles.css?v=23">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -71,6 +71,9 @@
             </div>
 
             <div class="sidebar-footer">
+                <button class="upgrade-cta" id="open-upgrade" hidden>
+                    ✨ Upgrade to Pro
+                </button>
                 <div class="settings-row">
                     <div class="setting-group">
                         <label for="wpm-select">WPM</label>
@@ -187,6 +190,28 @@
 
     <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
+    <div class="modal-backdrop" id="upgrade-backdrop" hidden>
+        <div class="modal upgrade-modal" role="dialog" aria-labelledby="upgrade-title">
+            <button class="modal-close" id="upgrade-close" aria-label="Close">✕</button>
+            <h2 id="upgrade-title">Fasty Pro</h2>
+            <p class="muted">Pay what you want, from €5. One-time, lifetime access.</p>
+            <ul class="upgrade-features">
+                <li>📚 <strong>20 documents</strong> in your library (vs 4 free)</li>
+                <li>💬 <strong>300 paste sessions</strong> (vs 8 free)</li>
+                <li>⚡ <strong>WPM up to 900</strong> (vs 450 free)</li>
+                <li>🌐 <strong>70 article URL imports / month</strong> (vs 3 free)</li>
+                <li>☁️ <strong>Cloud sync</strong> across all your devices</li>
+                <li>✨ Supporter badge</li>
+            </ul>
+            <p class="upgrade-soon">Pro launches soon. Drop your email and we'll let you know:</p>
+            <form id="upgrade-form" class="upgrade-form">
+                <input type="email" id="upgrade-email" required placeholder="you@example.com" />
+                <button type="submit" class="btn-primary">Notify me at launch</button>
+            </form>
+            <p id="upgrade-thanks" class="upgrade-thanks" hidden>Thanks — we'll be in touch.</p>
+        </div>
+    </div>
+
     <div class="leaderboard-overlay" id="leaderboard-overlay" hidden>
         <div class="leaderboard-topbar">
             <h2>30-day leaderboard</h2>
@@ -252,6 +277,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=22"></script>
+    <script type="module" src="app.js?v=23"></script>
 </body>
 </html>

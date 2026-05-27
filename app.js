@@ -16,6 +16,7 @@ import { pullCloudIntoLocal } from './src/storage.js';
 import { initTiers, onTierChange } from './src/tiers.js';
 import { maybeShowOnboarding } from './src/onboarding.js';
 import { initLeaderboard } from './src/leaderboard.js';
+import { initUpgradeUI } from './src/upgrade-ui.js';
 
 class FastyApp {
     constructor() {
@@ -1192,6 +1193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     initLeaderboard();
+    initUpgradeUI();
     initSelectionReader((text) => window.fastyApp.startSelectionRead(text));
     registerView('txt', () => import('./src/views/faithful-text.js'));
     registerView('url', () => import('./src/views/faithful-text.js'));
