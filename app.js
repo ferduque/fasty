@@ -99,6 +99,15 @@ class FastyApp {
         this._inSelectionMode = false;
         this._pageReadContinuation = null;
 
+        // Switch app to "document" mode (hides the paste textarea).
+        const app = document.querySelector('.app-container');
+        app.classList.remove('mode-paste');
+        app.classList.add('mode-doc');
+
+        // Highlight the active row in the sidebar library.
+        const { setActive } = await import('./src/library.js');
+        if (setActive) setActive(docId);
+
         // Build paragraphs from chapters (still used by selection-RSVP for
         // resolving paragraph indices, even though we default to Faithful)
         this.paragraphs = doc.chapters.map((ch, index) => ({
@@ -726,14 +735,54 @@ class FastyApp {
         if (this._topbarHandlersAttached) return;
         this._topbarHandlersAttached = true;
 
-        // Exit button: close the current document, return to clean state.
+        // Exit button: close the current document, return to paste mode.
         const exitBtn = document.getElementById('exit-doc');
-        if (exitBtn) exitBtn.addEventListener('click', () => this.closeCurrentDoc());
+        if (exitBtn) exitBtn.addEventListener('click', () => this.enterPasteMode());
 
         // "← Back to page" button: leave fasty (selection RSVP) and return
         // to the Faithful view scrolled to the page currently being read.
         const backBtn = document.getElementById('back-to-page');
         if (backBtn) backBtn.addEventListener('click', () => this.backToFaithfulPage());
+    }
+
+    /**
+     * Switch the whole app into "paste text" mode: clear any loaded document,
+     * show the textarea, and prepare the RSVP reader for pasted input.
+     */
+    async enterPasteMode() {
+        this.pause();
+        this.currentDoc = null;
+        this._inSelectionMode = false;
+        this._pageReadContinuation = null;
+        this._activeDocPage = null;
+        this._fastyResume = null;
+        this.words = [];
+        this.paragraphs = [];
+        this.currentWordIndex = 0;
+        this.currentParagraphIndex = 0;
+        this.hasStarted = false;
+        this._showBackButton(false);
+
+        const app = document.querySelector('.app-container');
+        app.classList.remove('mode-doc', 'view-faithful');
+        app.classList.add('mode-paste');
+
+        document.getElementById('reader-topbar').hidden = true;
+        const faithful = document.getElementById('faithful-container');
+        if (faithful) { faithful.hidden = true; faithful.innerHTML = ''; }
+
+        const { forceResetView } = await import('./src/view-switcher.js');
+        if (forceResetView) forceResetView();
+
+        // Highlight nothing in the sidebar library.
+        const { setActive } = await import('./src/library.js');
+        if (setActive) setActive(null);
+
+        this.elements.wordDisplay.classList.remove('visible');
+        this.clearWordDisplay();
+        this.updateStatus('Paste text and press <kbd>Space</kbd> to start');
+        const ta = this.elements.textInput;
+        if (ta) ta.focus();
     }
 
     /**
@@ -1011,5 +1060,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     import('./src/library.js').then(({ onLibraryDocumentSelected }) => {
         onLibraryDocumentSelected((id) => window.fastyApp.loadDocument(id));
+    });
+
+    // ===== Sidebar UX =====
+    const app = document.querySelector('.app-container');
+
+    // "+ New paste" → enter paste mode (close any open doc).
+    document.getElementById('new-paste').addEventListener('click', () => {
+        window.fastyApp.enterPasteMode();
+    });
+
+    // Sidebar collapse / expand
+    const sidebarCollapseBtn = document.getElementById('sidebar-collapse');
+    const sidebarExpandBtn = document.getElementById('sidebar-expand');
+    sidebarCollapseBtn.addEventListener('click', () => {
+        app.classList.add('sidebar-collapsed');
+        sidebarExpandBtn.hidden = false;
+    });
+    sidebarExpandBtn.addEventListener('click', () => {
+        app.classList.remove('sidebar-collapsed');
+        sidebarExpandBtn.hidden = true;
     });
 });

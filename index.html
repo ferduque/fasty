@@ -7,179 +7,182 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=11">
+    <link rel="stylesheet" href="styles.css?v=12">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Single unified view -->
-        <div class="main-view">
-            <!-- Left panel: Text input -->
-            <aside class="input-panel">
-                <header class="header">
-                    <h1 class="logo">f<span class="accent">a</span>sty</h1>
-                    <div class="header-actions">
-                        <button class="btn-ghost" id="open-library">Library</button>
-                        <button class="btn-primary" id="open-import">Import</button>
-                    </div>
-                </header>
-
-                <div class="input-controls">
-                    <div class="settings-row">
-                        <div class="setting-group">
-                            <label for="wpm-select">WPM</label>
-                            <select id="wpm-select">
-                                <option value="250">250</option>
-                                <option value="300" selected>300</option>
-                                <option value="350">350</option>
-                                <option value="400">400</option>
-                                <option value="450">450</option>
-                                <option value="500">500</option>
-                                <option value="550">550</option>
-                                <option value="600">600</option>
-                                <option value="650">650</option>
-                                <option value="700">700</option>
-                                <option value="750">750</option>
-                                <option value="800">800</option>
-                                <option value="850">850</option>
-                                <option value="900">900</option>
-                            </select>
-                        </div>
-                        
-                        <div class="setting-group">
-                            <label for="pause-select">Sentence pause</label>
-                            <select id="pause-select">
-                                <option value="0">Off</option>
-                                <option value="100">100ms</option>
-                                <option value="200" selected>200ms</option>
-                                <option value="300">300ms</option>
-                                <option value="400">400ms</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <textarea 
-                        id="text-input" 
-                        placeholder="Paste your text here..."
-                    ></textarea>
-                </div>
-            </aside>
-
-            <!-- Right panel: RSVP Reader -->
-            <main class="reader-panel">
-                <!-- Theme toggle button -->
-                <button class="theme-toggle" id="theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
-                    <span class="theme-icon" id="theme-icon"></span>
+    <div class="app-container mode-paste">
+        <!-- Sidebar (ChatGPT-style) -->
+        <aside class="sidebar" id="sidebar">
+            <header class="sidebar-header">
+                <h1 class="logo">f<span class="accent">a</span>sty</h1>
+                <button class="sidebar-collapse" id="sidebar-collapse" title="Collapse sidebar" aria-label="Collapse sidebar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
                 </button>
+            </header>
 
-                <div class="reader-topbar" id="reader-topbar" hidden>
-                  <span class="doc-title" id="doc-title"></span>
-                  <span class="muted" id="doc-page-info"></span>
-                  <button class="topbar-back" id="back-to-page" hidden title="Back to this page in the book" aria-label="Back to page">
+            <div class="sidebar-actions">
+                <button class="sidebar-btn primary" id="new-paste">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    <span>New paste</span>
+                </button>
+                <button class="sidebar-btn" id="open-import">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                    <span>Import</span>
+                </button>
+            </div>
+
+            <div class="sidebar-section-label">Library</div>
+            <div class="sidebar-library" id="sidebar-library">
+                <div class="sidebar-library-empty" id="sidebar-library-empty">
+                    <p>No documents yet.</p>
+                    <p class="muted">Click Import to add one.</p>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div class="settings-row">
+                    <div class="setting-group">
+                        <label for="wpm-select">WPM</label>
+                        <select id="wpm-select">
+                            <option value="250">250</option>
+                            <option value="300" selected>300</option>
+                            <option value="350">350</option>
+                            <option value="400">400</option>
+                            <option value="450">450</option>
+                            <option value="500">500</option>
+                            <option value="550">550</option>
+                            <option value="600">600</option>
+                            <option value="650">650</option>
+                            <option value="700">700</option>
+                            <option value="750">750</option>
+                            <option value="800">800</option>
+                            <option value="850">850</option>
+                            <option value="900">900</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label for="pause-select">Pause</label>
+                        <select id="pause-select">
+                            <option value="0">Off</option>
+                            <option value="100">100ms</option>
+                            <option value="200" selected>200ms</option>
+                            <option value="300">300ms</option>
+                            <option value="400">400ms</option>
+                        </select>
+                    </div>
+                    <button class="theme-toggle" id="theme-toggle" title="Toggle light / dark" aria-label="Toggle theme">
+                        <span class="theme-icon" id="theme-icon"></span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Sidebar re-open handle, visible only when sidebar is collapsed -->
+        <button class="sidebar-expand" id="sidebar-expand" title="Show sidebar" aria-label="Show sidebar" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+
+        <!-- Main reader area -->
+        <main class="reader-panel" id="reader-panel">
+
+            <!-- Top bar (visible only in document mode) -->
+            <div class="reader-topbar" id="reader-topbar" hidden>
+                <span class="doc-title" id="doc-title"></span>
+                <span class="muted" id="doc-page-info"></span>
+                <button class="topbar-back" id="back-to-page" hidden title="Back to this page in the book" aria-label="Back to page">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
                     <span>Back to page</span>
-                  </button>
-                  <button class="topbar-exit" id="exit-doc" title="Close document" aria-label="Close document">✕</button>
-                  <!-- Hidden DOM hooks kept so older code paths don't break (not visible). -->
-                  <select id="chapter-select" hidden></select>
-                  <input type="number" id="page-input" hidden value="1" />
-                  <span id="total-pages" hidden>1</span>
-                  <div class="view-toggle" id="view-toggle" hidden>
+                </button>
+                <button class="topbar-exit" id="exit-doc" title="Close document" aria-label="Close document">✕</button>
+                <!-- Hidden DOM hooks kept so older code paths don't break. -->
+                <select id="chapter-select" hidden></select>
+                <input type="number" id="page-input" hidden value="1" />
+                <span id="total-pages" hidden>1</span>
+                <div class="view-toggle" id="view-toggle" hidden>
                     <button data-view="rsvp" class="active">RSVP</button>
                     <button data-view="faithful">Faithful</button>
-                  </div>
+                </div>
+            </div>
+
+            <!-- Paste-mode textarea (visible only in paste mode, when no doc loaded) -->
+            <div class="paste-input" id="paste-input">
+                <textarea id="text-input" placeholder="Paste your text here, then press Space to start reading…"></textarea>
+            </div>
+
+            <!-- RSVP display (visible in paste mode during reading; in doc mode during fasty selection) -->
+            <div class="rsvp-container" id="rsvp-container">
+                <div class="guide-line-horizontal top"></div>
+                <div class="guide-line-horizontal bottom"></div>
+                <div class="guide-line-vertical top"></div>
+                <div class="guide-line-vertical bottom"></div>
+
+                <button class="nav-arrow nav-prev" id="nav-prev" title="Previous word (←)">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 18l-6-6 6-6"/>
+                    </svg>
+                </button>
+
+                <div class="word-display" id="word-display">
+                    <span class="word-before"></span><span class="word-focus"></span><span class="word-after"></span>
                 </div>
 
-                <!-- RSVP Display -->
-                <div class="rsvp-container">
-                    <!-- Fixed guide lines -->
-                    <div class="guide-line-horizontal top"></div>
-                    <div class="guide-line-horizontal bottom"></div>
-                    <div class="guide-line-vertical top"></div>
-                    <div class="guide-line-vertical bottom"></div>
-                    
-                    <!-- Navigation arrow - Previous -->
-                    <button class="nav-arrow nav-prev" id="nav-prev" title="Previous word (←)">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M15 18l-6-6 6-6"/>
-                        </svg>
-                    </button>
-                    
-                    <!-- Word display -->
-                    <div class="word-display" id="word-display">
-                        <span class="word-before"></span><span class="word-focus"></span><span class="word-after"></span>
-                    </div>
-                    
-                    <!-- Navigation arrow - Next -->
-                    <button class="nav-arrow nav-next" id="nav-next" title="Next word (→)">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 18l6-6-6-6"/>
-                        </svg>
-                    </button>
-                </div>
-                
-                <!-- Status message - below guide lines -->
-                <div class="status-message" id="status-message">
-                    <span class="status-text">Paste text and press Space to start</span>
-                </div>
-                <!-- Faithful view container -->
-                <div class="faithful-container" id="faithful-container" hidden></div>
+                <button class="nav-arrow nav-next" id="nav-next" title="Next word (→)">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                </button>
+            </div>
 
-                <!-- Bottom controls -->
-                <div class="reader-footer">
-                    <div class="progress-container">
-                        <div class="progress-bar" id="progress-bar"></div>
-                    </div>
-                    
-                    <div class="reader-info">
-                        <span id="word-counter">0 / 0</span>
-                        <span class="hint"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> navigate</span>
-                    </div>
+            <!-- Status message -->
+            <div class="status-message" id="status-message">
+                <span class="status-text">Paste text and press Space to start</span>
+            </div>
+
+            <!-- Faithful view container (visible only in doc mode) -->
+            <div class="faithful-container" id="faithful-container" hidden></div>
+
+            <!-- Bottom controls -->
+            <div class="reader-footer">
+                <div class="progress-container">
+                    <div class="progress-bar" id="progress-bar"></div>
                 </div>
-            </main>
-        </div>
+                <div class="reader-info">
+                    <span id="word-counter">0 / 0</span>
+                    <span class="hint"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> navigate</span>
+                </div>
+            </div>
+        </main>
     </div>
 
     <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
 
     <div class="modal-backdrop" id="import-backdrop" hidden>
-      <div class="modal" role="dialog" aria-labelledby="import-title">
-        <button class="modal-close" id="import-close" aria-label="Close">✕</button>
-        <h2 id="import-title">Import a document</h2>
+        <div class="modal" role="dialog" aria-labelledby="import-title">
+            <button class="modal-close" id="import-close" aria-label="Close">✕</button>
+            <h2 id="import-title">Import a document</h2>
 
-        <div class="drop-zone" id="drop-zone">
-          <p>Drop a <strong>PDF</strong>, <strong>EPUB</strong>, or <strong>TXT</strong> file here</p>
-          <p class="muted">or</p>
-          <button class="btn-ghost" id="pick-file">Pick a file…</button>
-          <input type="file" id="file-input" accept=".pdf,.epub,.txt" hidden />
-        </div>
+            <div class="drop-zone" id="drop-zone">
+                <p>Drop a <strong>PDF</strong>, <strong>EPUB</strong>, or <strong>TXT</strong> file here</p>
+                <p class="muted">or</p>
+                <button class="btn-ghost" id="pick-file">Pick a file…</button>
+                <input type="file" id="file-input" accept=".pdf,.epub,.txt" hidden />
+            </div>
 
-        <div class="url-row">
-          <input type="url" id="url-input" placeholder="…or paste an article URL" />
-          <button class="btn-primary" id="url-import">Import URL</button>
-        </div>
+            <div class="url-row">
+                <input type="url" id="url-input" placeholder="…or paste an article URL" />
+                <button class="btn-primary" id="url-import">Import URL</button>
+            </div>
 
-        <div class="import-progress" id="import-progress" hidden>
-          <p id="import-status">Parsing…</p>
-          <div class="progress-bar-shell"><div class="progress-bar-fill" id="import-bar"></div></div>
+            <div class="import-progress" id="import-progress" hidden>
+                <p id="import-status">Parsing…</p>
+                <div class="progress-bar-shell"><div class="progress-bar-fill" id="import-bar"></div></div>
+            </div>
         </div>
-      </div>
     </div>
 
-    <div class="library-overlay" id="library-overlay" hidden>
-      <div class="library-topbar">
-        <h2>Library</h2>
-        <button class="modal-close" id="library-close" aria-label="Close">✕</button>
-      </div>
-      <div class="library-grid" id="library-grid"></div>
-      <div class="library-empty" id="library-empty" hidden>
-        <p>No documents yet — drop a file or paste a URL to start.</p>
-        <button class="btn-primary" id="library-open-import">Import a document</button>
-      </div>
-    </div>
-
-    <script type="module" src="app.js?v=11"></script>
+    <script type="module" src="app.js?v=12"></script>
 </body>
 </html>
