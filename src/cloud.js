@@ -306,3 +306,87 @@ function fromCloudSession(row) {
     lastUsedAt: new Date(row.last_used_at).getTime(),
   };
 }
+
+// ============= Profile / Tier =============
+
+export async function getProfile() {
+  if (!currentUserCache) return null;
+  const c = await loadClient();
+  const { data, error } = await c.from('profiles').select('*').eq('user_id', currentUserCache.id).maybeSingle();
+  if (error) throw error;
+  return data ? {
+    tier: data.tier,
+    displayName: data.display_name,
+    countryCode: data.country_code,
+    leaderboardOptin: data.leaderboard_optin,
+    urlImportsUsed: data.url_imports_used,
+    urlImportsMonthStart: data.url_imports_month_start,
+  } : null;
+}
+
+export async function updateProfile({ displayName, countryCode, leaderboardOptin } = {}) {
+  if (!currentUserCache) return;
+  const c = await loadClient();
+  const patch = {};
+  if (displayName !== undefined) patch.display_name = displayName;
+  if (countryCode !== undefined) patch.country_code = countryCode;
+  if (leaderboardOptin !== undefined) patch.leaderboard_optin = leaderboardOptin;
+  patch.updated_at = new Date().toISOString();
+  const { error } = await c.from('profiles').update(patch).eq('user_id', currentUserCache.id);
+  if (error) throw error;
+}
+
+// ============= URL imports =============
+
+export async function useUrlImport() {
+  if (!currentUserCache) return { allowed: false, used: 0, remaining: 0, cap: 0 };
+  const c = await loadClient();
+  const { data, error } = await c.rpc('use_url_import');
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    allowed: !!row?.allowed,
+    used: row?.used ?? 0,
+    remaining: row?.remaining ?? 0,
+    cap: row?.cap ?? 0,
+  };
+}
+
+// ============= Reading sessions =============
+
+export async function recordReadingSession({ wordsRead, wpm, durationSeconds, documentId = null, pasteSessionId = null }) {
+  if (!currentUserCache) return;
+  const c = await loadClient();
+  const { error } = await c.rpc('record_reading_session', {
+    p_words_read: wordsRead,
+    p_wpm: wpm,
+    p_duration_seconds: durationSeconds,
+    p_document_id: documentId,
+    p_paste_session_id: pasteSessionId,
+  });
+  if (error) throw error;
+}
+
+// ============= Leaderboard =============
+
+export async function loadLeaderboard({ scope = 'global', countryCode = null, limit = 50 } = {}) {
+  const c = await loadClient();
+  let q = c.from('leaderboard_30d')
+    .select('user_id, display_name, country_code, avg_wpm, total_words, items_read')
+    .order('avg_wpm', { ascending: false })
+    .limit(limit);
+  if (scope === 'country' && countryCode) q = q.eq('country_code', countryCode);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+// ============= Waitlist =============
+
+export async function joinWaitlist(email, source = 'upgrade_button') {
+  const c = await loadClient();
+  const payload = { email: email.toLowerCase().trim(), source };
+  if (currentUserCache) payload.user_id = currentUserCache.id;
+  const { error } = await c.from('waitlist').upsert(payload, { onConflict: 'email' });
+  if (error) throw error;
+}
