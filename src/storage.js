@@ -68,10 +68,15 @@ function awaitRequest(req) {
 /**
  * Fire-and-forget cloud mirror: runs the cloud write, ignores any "no user
  * signed in" no-op, and surfaces network failures as a quiet console warning.
- * Storage writes never block on the cloud.
+ * Storage writes never block on the cloud. Free users stay local-only — only
+ * Pro tier mirrors to the cloud.
  */
 function mirror(thunk) {
-  Promise.resolve().then(thunk).catch(err => {
+  Promise.resolve().then(async () => {
+    const { isPro } = await import('./tiers.js');
+    if (!isPro()) return;
+    return thunk();
+  }).catch(err => {
     if (!err || /not configured|not signed in|cloud disabled/i.test(err.message || '')) return;
     console.warn('Cloud mirror failed:', err.message || err);
   });
@@ -85,6 +90,10 @@ function mirror(thunk) {
 export async function pullCloudIntoLocal() {
   const cloud = await import('./cloud.js');
   if (!cloud.currentUser()) return;
+  // Free users stay local-only. Fetched directly to avoid racing the tier
+  // cache that loads in parallel on sign-in.
+  const profile = await cloud.getProfile().catch(() => null);
+  if (profile?.tier !== 'pro') return;
   try {
     const [docs, sessions] = await Promise.all([
       cloud.cloudListDocs().catch(() => []),
