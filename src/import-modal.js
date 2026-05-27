@@ -4,6 +4,7 @@ import { parseUrl } from './parsers/url.js';
 import { parsePdfFile } from './parsers/pdf.js';
 import { parseEpubFile } from './parsers/epub.js';
 import { saveDocument } from './storage.js';
+import { useUrlImport } from './cloud.js';
 
 const onImported = []; // listeners notified when a document is successfully imported
 
@@ -82,8 +83,18 @@ export function initImportModal() {
 
   async function handleUrl(url) {
     if (!url) return;
-    showProgress(`Fetching ${url}…`);
+    showProgress(`Checking quota…`);
     try {
+      const quota = await useUrlImport();
+      if (!quota.allowed) {
+        hideProgress();
+        toast(
+          `URL import quota reached (${quota.used}/${quota.cap} this month). Upgrade to Pro for 70 URL imports per month.`,
+          { error: true, duration: 7000 }
+        );
+        return;
+      }
+      showProgress(`Fetching ${url}…`);
       const doc = await parseUrl(url);
       await saveDocument(doc);
       hideProgress();
