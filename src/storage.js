@@ -35,7 +35,20 @@ function openDB() {
         db.createObjectStore('paste_sessions', { keyPath: 'id' });
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onblocked = () => {
+      // Another tab still has the DB open on an older version. Surface a toast.
+      import('./toasts.js').then(({ toast }) =>
+        toast('Close other Fasty tabs so the new sidebar can load', { error: true, duration: 8000 })
+      ).catch(() => {});
+      reject(new Error('IndexedDB upgrade blocked by another tab'));
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      // If a sibling tab triggers a future version-change, gracefully close so
+      // it can upgrade without blocking us next time.
+      db.onversionchange = () => { try { db.close(); } catch (_) {} dbPromise = null; };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
   });
   return dbPromise;

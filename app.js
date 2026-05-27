@@ -386,7 +386,12 @@ class FastyApp {
                 this._currentSessionId = id;
                 setActiveSession(id);
             })
-            .catch(err => console.warn('Could not save paste session:', err));
+            .catch(err => {
+                console.warn('Could not save paste session:', err);
+                import('./src/toasts.js').then(({ toast }) =>
+                    toast(`Couldn't save paste session: ${err?.message || err}`, { error: true })
+                ).catch(() => {});
+            });
 
         // Start playing
         this.play();
