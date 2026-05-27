@@ -8,7 +8,11 @@ import { initImportModal, onDocumentImported } from './src/import-modal.js';
 import { initLibrary, refresh as refreshLibrary } from './src/library.js';
 import { initViewSwitcher, setView, registerView } from './src/view-switcher.js';
 import { initSelectionReader } from './src/selection-reader.js';
-import { initPasteSessions, saveSession as savePasteSession, onSessionOpened, setActive as setActiveSession } from './src/paste-sessions.js';
+import { initPasteSessions, saveSession as savePasteSession, onSessionOpened, setActive as setActiveSession, refresh as refreshPasteSessions } from './src/paste-sessions.js';
+import * as cloud from './src/cloud.js';
+import { initAuthUI } from './src/auth-ui.js';
+import { migrateLocalToCloudIfNeeded } from './src/migration.js';
+import { pullCloudIntoLocal } from './src/storage.js';
 
 class FastyApp {
     constructor() {
@@ -1093,6 +1097,22 @@ document.addEventListener('DOMContentLoaded', () => {
     onDocumentImported(() => refreshLibrary());
     window.fastyApp = new FastyApp();
     onSessionOpened((id) => window.fastyApp.openPasteSession(id));
+
+    // Cloud sync (Supabase). Runs only if src/config.js has real keys.
+    cloud.init().then(async () => {
+        await initAuthUI();
+        cloud.onAuthChange(async (user) => {
+            if (user) {
+                // First sign-in on this device pushes existing local data up.
+                await migrateLocalToCloudIfNeeded();
+                // And pulls anything else from the account back down.
+                await pullCloudIntoLocal();
+            }
+            // Refresh sidebar either way (sign-in adds rows, sign-out keeps local).
+            refreshLibrary();
+            refreshPasteSessions();
+        });
+    });
     initSelectionReader((text) => window.fastyApp.startSelectionRead(text));
     registerView('txt', () => import('./src/views/faithful-text.js'));
     registerView('url', () => import('./src/views/faithful-text.js'));
