@@ -372,7 +372,7 @@ export async function recordReadingSession({ wordsRead, wpm, durationSeconds, do
 export async function loadLeaderboard({ scope = 'global', countryCode = null, limit = 50 } = {}) {
   const c = await loadClient();
   let q = c.from('leaderboard_30d')
-    .select('user_id, display_name, country_code, avg_wpm, total_words, items_read')
+    .select('user_id, display_name, country_code, avg_wpm, total_words, items_read, current_streak')
     .order('avg_wpm', { ascending: false })
     .limit(limit);
   if (scope === 'country' && countryCode) q = q.eq('country_code', countryCode);

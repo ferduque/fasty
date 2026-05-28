@@ -68,6 +68,7 @@ async function render() {
     <div class="lb-row ${r.user_id === me?.id ? 'self' : ''}">
       <div class="lb-rank">#${i + 1}</div>
       <div class="lb-name">${escapeHtml(r.display_name || 'Anonymous reader')}${r.country_code ? ` <span class="country">${escapeHtml(r.country_code)}</span>` : ''}</div>
+      <div class="lb-streak" title="${r.current_streak}-day reading streak">${r.current_streak > 0 ? `🔥 ${r.current_streak}` : ''}</div>
       <div class="lb-wpm">${r.avg_wpm} <span style="font-size:10px;color:var(--text-muted)">WPM</span></div>
       <div class="lb-meta">${Number(r.total_words).toLocaleString()} words · ${r.items_read} read</div>
     </div>
