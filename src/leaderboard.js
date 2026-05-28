@@ -64,12 +64,21 @@ async function render() {
     return;
   }
 
-  body.innerHTML = rows.map((r, i) => `
+  const header = `
+    <div class="lb-row lb-header">
+      <div class="lb-rank"></div>
+      <div class="lb-name">Reader</div>
+      <div class="lb-streak">Streak</div>
+      <div class="lb-wpm">WPM</div>
+      <div class="lb-meta">30-day reading</div>
+    </div>`;
+
+  body.innerHTML = header + rows.map((r, i) => `
     <div class="lb-row ${r.user_id === me?.id ? 'self' : ''}">
       <div class="lb-rank">#${i + 1}</div>
       <div class="lb-name">${escapeHtml(r.display_name || 'Anonymous reader')}${r.country_code ? ` <span class="country">${escapeHtml(r.country_code)}</span>` : ''}</div>
-      <div class="lb-streak" title="${r.current_streak}-day reading streak">${r.current_streak > 0 ? `🔥 ${r.current_streak}` : ''}</div>
-      <div class="lb-wpm">${r.avg_wpm} <span style="font-size:10px;color:var(--text-muted)">WPM</span></div>
+      <div class="lb-streak" title="${r.current_streak}-day reading streak">${r.current_streak > 0 ? `🔥 ${r.current_streak}<span class="streak-unit">d</span>` : '—'}</div>
+      <div class="lb-wpm">${r.avg_wpm} <span class="wpm-unit">WPM</span></div>
       <div class="lb-meta">${Number(r.total_words).toLocaleString()} words · ${r.items_read} read</div>
     </div>
   `).join('');

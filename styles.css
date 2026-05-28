@@ -998,11 +998,22 @@ body.auth-required .modal-backdrop {
   border-bottom: 1px solid var(--border-color);
 }
 .lb-row.self { background: var(--bg-tertiary); }
+.lb-row.lb-header {
+  font-size: 10px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border-color); border-radius: 0;
+  padding: 8px 12px;
+}
+.lb-row.lb-header .lb-streak,
+.lb-row.lb-header .lb-wpm,
+.lb-row.lb-header .lb-meta { font-size: 10px; font-weight: 500; color: var(--text-muted); }
 .lb-rank { font-weight: 600; color: var(--text-muted); }
 .lb-name { font-weight: 500; }
 .lb-name .country { color: var(--text-muted); font-size: 12px; margin-left: 6px; }
 .lb-streak { font-size: 13px; font-weight: 600; color: #ff8a3d; text-align: center; }
+.lb-streak .streak-unit { font-size: 10px; color: var(--text-muted); margin-left: 1px; font-weight: 500; }
 .lb-wpm { font-size: 18px; font-weight: 600; color: var(--accent); }
+.lb-wpm .wpm-unit { font-size: 10px; color: var(--text-muted); font-weight: 500; }
 .lb-meta { font-size: 11px; color: var(--text-muted); text-align: right; }
 .lb-empty { text-align: center; color: var(--text-muted); padding: 40px 0; }
 
