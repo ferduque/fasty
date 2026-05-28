@@ -1032,4 +1032,13 @@ body.auth-required .modal-backdrop {
   font-family: inherit;
 }
 .upgrade-thanks { color: var(--accent); margin-top: 8px; font-size: 13px; }
+.upgrade-buy { width: 100%; padding: 12px; font-size: 14px; margin-top: 8px; }
+.upgrade-waiting { margin-top: 12px; }
+.upgrade-waiting p { margin: 0 0 8px; font-size: 13px; }
+.upgrade-waiting .btn-ghost { width: 100%; }
+.upgrade-success {
+  color: var(--accent); margin-top: 12px;
+  font-size: 14px; text-align: center;
+  padding: 12px; border: 1px solid var(--accent); border-radius: 8px;
+}
 
