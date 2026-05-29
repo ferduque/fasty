@@ -47,12 +47,17 @@ Deno.serve(async (req) => {
 
     const customerId =
       typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
+    const paymentIntentId =
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : session.payment_intent?.id ?? null;
 
     const { error } = await supabase
       .from("profiles")
       .update({
         tier: "pro",
         stripe_customer_id: customerId,
+        stripe_payment_intent_id: paymentIntentId,
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", userId);
@@ -65,7 +70,45 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`Upgraded profile to Pro: user_id=${userId}, stripe_customer=${customerId}`);
+    console.log(`Upgraded profile to Pro: user_id=${userId}, pi=${paymentIntentId}`);
+  }
+
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+    const paymentIntentId =
+      typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : charge.payment_intent?.id ?? null;
+    if (!paymentIntentId) {
+      console.warn("charge.refunded without payment_intent", charge.id);
+      return new Response("ok", { status: 200 });
+    }
+
+    // Look up the profile that paid via this payment_intent and revoke Pro.
+    // If no row matches (e.g. our test purchase that pre-dates the column),
+    // we silently no-op so legacy/manual upgrades aren't disturbed.
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({
+        tier: "free",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("stripe_payment_intent_id", paymentIntentId)
+      .select("user_id");
+
+    if (error) {
+      console.error("Refund downgrade failed:", paymentIntentId, error);
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (!data || data.length === 0) {
+      console.log(`Refund for ${paymentIntentId} — no matching profile, skipping downgrade`);
+    } else {
+      console.log(`Refund downgrade: user_id=${data[0].user_id}, pi=${paymentIntentId}`);
+    }
   }
 
   return new Response("ok", { status: 200 });
