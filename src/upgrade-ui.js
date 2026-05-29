@@ -11,8 +11,8 @@ import { currentUser } from './cloud.js';
 import { onTierChange, refreshTier } from './tiers.js';
 import { toast } from './toasts.js';
 
-// Test-mode payment link. Replace with the live-mode link when going live.
-const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/test_dRm28qbHh91uftC67c0kE00';
+// Live-mode Stripe Payment Link for Fasty Pro (€9 one-time lifetime).
+const STRIPE_PAYMENT_LINK = 'https://buy.stripe.com/dRm28qbHh91uftC67c0kE00';
 
 export function initUpgradeUI() {
   const cta = document.getElementById('open-upgrade');
