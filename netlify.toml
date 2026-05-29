@@ -1,0 +1,31 @@
+[build]
+  publish = "."
+  command = ""
+
+# Cache JS/CSS aggressively; we bust via the ?v=N query param in index.html.
+# index.html itself must always re-fetch so visitors see the latest version
+# numbers immediately.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/app.js"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/styles.css"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/src/*"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
