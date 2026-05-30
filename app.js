@@ -58,7 +58,8 @@ class FastyApp {
             statusText: document.querySelector('.status-text'),
             wordCounter: document.getElementById('word-counter'),
             progressBar: document.getElementById('progress-bar'),
-            mobileTapHint: document.getElementById('mobile-tap-hint')
+            mobileTapHint: document.getElementById('mobile-tap-hint'),
+            desktopBigHint: document.getElementById('desktop-big-hint')
         };
         
         this.init();
@@ -175,7 +176,7 @@ class FastyApp {
         this.attachTopbarHandlers();
         // Default view = Faithful for any imported document.
         await setView('faithful');
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
 
     handleReaderClick() {
@@ -330,7 +331,7 @@ class FastyApp {
             this.updateStatus(this._currentStatusKey, this._currentStatusBreak);
         }
 
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
 
     // ==================== State Management ====================
@@ -352,38 +353,53 @@ class FastyApp {
         this.elements.statusMessage.classList.remove('hidden');
         // Re-evaluate the visual hint, since its copy depends on _currentStatusKey
         // ("Tap here!" vs "Next page").
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
 
     hideStatus() {
         this.elements.statusMessage.classList.add('hidden');
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
 
     /**
-     * Mobile-only: show the visual "Tap here!" hint inside the RSVP area
-     * when text is loaded but reading hasn't started (or is paused before
-     * a paragraph/page boundary). On desktop this is a no-op.
+     * Show the visual "Tap here!" / "Click here to start" / "Next page" hint
+     * inside the RSVP area when text is loaded but reading hasn't begun
+     * (initial state) or at end of a document page. Picks the mobile vs
+     * desktop element based on this.isMobile. The inactive element is always
+     * hidden so flipping between viewports never leaves both visible.
      */
-    updateMobileTapHint() {
-        if (!this.elements.mobileTapHint) return;
+    updateBigHint() {
+        const mobileEl = this.elements.mobileTapHint;
+        const desktopEl = this.elements.desktopBigHint;
+        if (!mobileEl && !desktopEl) return;
+
         const hasText = this.elements.textInput && this.elements.textInput.value.trim().length > 0;
         const docLoaded = !!this.currentDoc;
         const textReady = hasText || docLoaded;
-
-        // The big visual hint only appears in two situations:
-        //  (a) Initial state — text/doc loaded but reading has never started → "Tap here!"
-        //  (b) End of a page in document mode → "Next page"
-        // Paragraph breaks and end-of-text use the smaller status message only.
         const initialState = !this.hasStarted && textReady;
         const atPageBreak = this._currentStatusKey === 'pageBreak';
-        const shouldShow = this.isMobile && !this.isPlaying && (initialState || atPageBreak);
+        const shouldShow = !this.isPlaying && (initialState || atPageBreak);
 
-        if (shouldShow) {
-            this.elements.mobileTapHint.textContent = atPageBreak ? 'Next page' : 'Tap here!';
-            this.elements.mobileTapHint.hidden = false;
+        if (this.isMobile) {
+            if (desktopEl) desktopEl.hidden = true;
+            if (mobileEl) {
+                if (shouldShow) {
+                    mobileEl.textContent = atPageBreak ? 'Next page' : 'Tap here!';
+                    mobileEl.hidden = false;
+                } else {
+                    mobileEl.hidden = true;
+                }
+            }
         } else {
-            this.elements.mobileTapHint.hidden = true;
+            if (mobileEl) mobileEl.hidden = true;
+            if (desktopEl) {
+                if (shouldShow) {
+                    desktopEl.textContent = atPageBreak ? 'Next page' : 'Click here to start';
+                    desktopEl.hidden = false;
+                } else {
+                    desktopEl.hidden = true;
+                }
+            }
         }
     }
     
@@ -406,7 +422,7 @@ class FastyApp {
         } else {
             this.updateStatus('emptyPrompt');
         }
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
     
     onWpmChange() {
@@ -595,7 +611,7 @@ class FastyApp {
 
         // Start playing
         this.play();
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
 
     reset() {
@@ -614,7 +630,7 @@ class FastyApp {
         this.elements.wordCounter.textContent = '0 / 0';
         this.setReadingState(false);
         this.elements.appContainer.classList.remove('paused');
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
     
     togglePlayPause() {
@@ -659,7 +675,7 @@ class FastyApp {
             this._autosaveInterval = setInterval(() => this.saveCurrentProgress(), 5000);
         }
 
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
 
     /**
@@ -711,7 +727,7 @@ class FastyApp {
             this.updateStatus('paused');
         }
 
-        this.updateMobileTapHint();
+        this.updateBigHint();
     }
 
     /**
