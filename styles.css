@@ -1354,3 +1354,31 @@ body.auth-required .modal-backdrop {
     background: var(--bg-primary);
 }
 
+/* ---------- Fade chrome on .reading ---------- */
+
+/* Smooth transitions both directions (idle ↔ reading). */
+.app-container:not(.is-mobile) .sidebar {
+    transition: transform 0.3s ease;
+}
+
+.app-container:not(.is-mobile) .paste-input,
+.app-container:not(.is-mobile) .reader-topbar {
+    transition: opacity 0.3s ease;
+}
+
+/* During reading: sidebar slides off-screen left, paste box fades. */
+.app-container:not(.is-mobile).reading .sidebar {
+    transform: translateX(-100%);
+    pointer-events: none;
+}
+
+.app-container:not(.is-mobile).reading .paste-input,
+.app-container:not(.is-mobile).reading .reader-topbar {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* status-message already fades via the existing unscoped
+   .app-container.reading .status-message rule (around line 546).
+   That rule covers both desktop and mobile; no need to duplicate. */
+
