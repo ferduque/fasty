@@ -956,6 +956,18 @@ class FastyApp {
             }
         }
 
+        // Esc as alternate pause shortcut. Bail if any modal is open so we
+        // don't fight with the modal's own close behavior.
+        if (e.code === 'Escape' && this.hasStarted && this.isPlaying) {
+            const modalOpen = document.querySelector(
+                '.modal-backdrop:not([hidden]), .leaderboard-overlay:not([hidden])'
+            );
+            if (!modalOpen) {
+                e.preventDefault();
+                this.pause();
+            }
+        }
+
         // Arrow keys for navigation
         if (e.code === 'ArrowLeft') {
             e.preventDefault();
