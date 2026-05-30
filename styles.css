@@ -49,6 +49,7 @@
 html, body {
     height: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
 }
 
 body {
@@ -1025,11 +1026,57 @@ body.auth-required .modal-backdrop {
     /* dvh handles iOS Safari's collapsing URL bar gracefully where supported. */
     height: 100vh;
     height: 100dvh;
+    overflow: hidden;
 }
 
 .app-container.is-mobile .reader-panel {
     height: 100vh;
     height: 100dvh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* RSVP container fills the full reader-panel viewport. Word + tap hint
+   always sit at the true viewport center, regardless of chrome above. */
+.app-container.is-mobile .rsvp-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    flex: none;
+}
+
+/* Chrome elements layer on top of the RSVP container with opaque background
+   so the word doesn't bleed through during paused/idle states. */
+.app-container.is-mobile .mobile-topbar,
+.app-container.is-mobile .mobile-settings-row,
+.app-container.is-mobile .paste-input,
+.app-container.is-mobile .status-message {
+    position: relative;
+    z-index: 2;
+    background: var(--bg-primary);
+    transition: opacity 0.3s ease;
+}
+
+/* Footer pinned to bottom of the flex column. */
+.app-container.is-mobile .reader-footer {
+    margin-top: auto;
+    position: relative;
+    z-index: 2;
+}
+
+/* During active reading, chrome fades to nothing so the word stands alone.
+   Tapping the (transparent) chrome area still pauses reading via the
+   reader-panel click handler — touch events pass through opacity:0
+   elements only if pointer-events is also none. We want taps to bring
+   chrome back, so keep pointer-events on the reader-panel itself. */
+.app-container.is-mobile.reading .mobile-topbar,
+.app-container.is-mobile.reading .mobile-settings-row,
+.app-container.is-mobile.reading .paste-input {
+    opacity: 0;
+    pointer-events: none;
 }
 
 /* ---------- Sidebar → slide-in drawer ---------- */
@@ -1156,8 +1203,9 @@ body.auth-required .modal-backdrop {
 }
 
 .app-container.is-mobile #text-input {
-    height: 22vh;
-    min-height: 90px;
+    height: 18vh;
+    height: 18dvh;
+    min-height: 80px;
 }
 
 /* ---------- RSVP word area ---------- */
