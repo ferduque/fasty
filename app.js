@@ -57,7 +57,8 @@ class FastyApp {
             statusMessage: document.getElementById('status-message'),
             statusText: document.querySelector('.status-text'),
             wordCounter: document.getElementById('word-counter'),
-            progressBar: document.getElementById('progress-bar')
+            progressBar: document.getElementById('progress-bar'),
+            mobileTapHint: document.getElementById('mobile-tap-hint')
         };
         
         this.init();
@@ -174,6 +175,7 @@ class FastyApp {
         this.attachTopbarHandlers();
         // Default view = Faithful for any imported document.
         await setView('faithful');
+        this.updateMobileTapHint();
     }
 
     handleReaderClick() {
@@ -327,6 +329,8 @@ class FastyApp {
         if (this._currentStatusKey) {
             this.updateStatus(this._currentStatusKey, this._currentStatusBreak);
         }
+
+        this.updateMobileTapHint();
     }
 
     // ==================== State Management ====================
@@ -351,6 +355,20 @@ class FastyApp {
     hideStatus() {
         this.elements.statusMessage.classList.add('hidden');
     }
+
+    /**
+     * Mobile-only: show the visual "Tap here!" hint inside the RSVP area
+     * when text is loaded but reading hasn't started (or is paused before
+     * a paragraph/page boundary). On desktop this is a no-op.
+     */
+    updateMobileTapHint() {
+        if (!this.elements.mobileTapHint) return;
+        const hasText = this.elements.textInput && this.elements.textInput.value.trim().length > 0;
+        const docLoaded = !!this.currentDoc;
+        const textReady = hasText || docLoaded;
+        const shouldShow = this.isMobile && textReady && !this.isPlaying;
+        this.elements.mobileTapHint.hidden = !shouldShow;
+    }
     
     setReadingState(reading) {
         this.elements.appContainer.classList.toggle('reading', reading);
@@ -364,13 +382,14 @@ class FastyApp {
         if (this.hasStarted) {
             this.reset();
         }
-        
+
         const hasText = this.elements.textInput.value.trim().length > 0;
         if (hasText) {
             this.updateStatus('readyPrompt');
         } else {
             this.updateStatus('emptyPrompt');
         }
+        this.updateMobileTapHint();
     }
     
     onWpmChange() {
@@ -559,8 +578,9 @@ class FastyApp {
 
         // Start playing
         this.play();
+        this.updateMobileTapHint();
     }
-    
+
     reset() {
         this.pause();
         this.words = [];
@@ -577,6 +597,7 @@ class FastyApp {
         this.elements.wordCounter.textContent = '0 / 0';
         this.setReadingState(false);
         this.elements.appContainer.classList.remove('paused');
+        this.updateMobileTapHint();
     }
     
     togglePlayPause() {
@@ -620,6 +641,8 @@ class FastyApp {
         if (!this._autosaveInterval) {
             this._autosaveInterval = setInterval(() => this.saveCurrentProgress(), 5000);
         }
+
+        this.updateMobileTapHint();
     }
 
     /**
@@ -670,8 +693,10 @@ class FastyApp {
         if (this.hasStarted && this.currentWordIndex < this.words.length) {
             this.updateStatus('paused');
         }
+
+        this.updateMobileTapHint();
     }
-    
+
     /**
      * Check if a word ends with sentence-ending punctuation
      */
