@@ -63,6 +63,46 @@ Speed-reading web app (RSVP + faithful PDF/EPUB view). Free / Pro tiers, public
 - Feature work goes on `feature/*` branches; merge to `main` when ready.
 - The monetization work happened on `feature/monetization` (now merged).
 
+## Mobile UI architecture (added May 30 2026)
+
+Mobile uses a JS-toggled `.app-container.is-mobile` class as the gate for the
+entire mobile cascade — no raw `@media` rules for layout (only for safe areas).
+This keeps CSS and the JS reparenting logic in lockstep.
+
+- **Detection:** `matchMedia('(max-width: 768px), (pointer: coarse) and (max-width: 1024px)')`
+  in `FastyApp.constructor`. Listener flips `this.isMobile` and re-runs
+  `applyMobileMode()` on viewport / pointer changes.
+- **JS reparenting (no DOM duplication):** WPM + Pause `<select>`s and the
+  theme toggle are *physically moved* between `.sidebar-footer .settings-row`
+  (desktop) and `#mobile-settings-row` / `#mobile-theme-slot` (mobile) when
+  `applyMobileMode()` runs. Same element instance → listeners and values are
+  preserved automatically, no sync logic needed.
+- **Touch-aware copy:** `t(key)` helper picks desktop vs mobile string from a
+  single `COPY` map (`'Press Space'` vs `'Tap'`, etc.). All `updateStatus()`
+  callers pass keys, not literal HTML. `_currentStatusKey` is tracked so
+  resize re-renders status with new wording.
+- **Distraction-free reading:** `.app-container.is-mobile.reading` fades
+  `.mobile-topbar`, `.mobile-settings-row`, `.paste-input` to opacity 0
+  with pointer-events none. RSVP container is `position: absolute; inset: 0`
+  with `z-index: 1` so the word is always at *true viewport center*, not
+  the residual space after chrome.
+- **"Tap here!" / "Next page" hint:** `#mobile-tap-hint` element. Shows only
+  in two states: (a) initial — text loaded but never started, (b) end of a
+  document page (pageBreak status). Hidden at paragraph breaks (small status
+  text below RSVP handles those) and during active reading. Logic is in
+  `updateMobileTapHint()`, called from every state transition.
+- **iOS viewport lockdown:** `.app-container.is-mobile` is `position: fixed;
+  inset: 0; touch-action: manipulation` so the page truly can't scroll or
+  zoom. Viewport meta needs `maximum-scale=1, user-scalable=no,
+  viewport-fit=cover` — the latter activates `env(safe-area-inset-*)` (notch
+  + home indicator). Without `viewport-fit=cover` the insets return 0.
+- **iOS auto-zoom-on-input:** any `<input>` / `<textarea>` with effective
+  font-size below 16px causes iOS Safari to zoom in on focus. Mobile textarea
+  is pinned to 16px to prevent that.
+- **Safari URL bar:** use `100dvh` not `100vh` for any element that needs to
+  fit *within* the visible viewport (URL bar can collapse, dvh tracks it).
+  Sidebar drawer uses `height: 100dvh` not `bottom: 0` for this reason.
+
 ## Deploy verification
 
 After every push, check:
