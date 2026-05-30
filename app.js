@@ -224,6 +224,36 @@ class FastyApp {
 
     applyMobileMode() {
         this.elements.appContainer.classList.toggle('is-mobile', this.isMobile);
+
+        // Reparent setting-groups (WPM, Pause) between desktop sidebar-footer
+        // and mobile settings row. We move the *same* DOM nodes so listeners
+        // and values are preserved — no duplication, no sync logic.
+        const desktopSettingsRow = document.querySelector('.sidebar-footer .settings-row');
+        const mobileSettingsRow = document.getElementById('mobile-settings-row');
+        const wpmGroup = document.getElementById('wpm-select').closest('.setting-group');
+        const pauseGroup = document.getElementById('pause-select').closest('.setting-group');
+
+        if (this.isMobile) {
+            if (wpmGroup && wpmGroup.parentElement !== mobileSettingsRow) {
+                mobileSettingsRow.appendChild(wpmGroup);
+            }
+            if (pauseGroup && pauseGroup.parentElement !== mobileSettingsRow) {
+                mobileSettingsRow.appendChild(pauseGroup);
+            }
+        } else {
+            if (wpmGroup && wpmGroup.parentElement !== desktopSettingsRow) {
+                desktopSettingsRow.insertBefore(wpmGroup, desktopSettingsRow.firstChild);
+            }
+            if (pauseGroup && pauseGroup.parentElement !== desktopSettingsRow) {
+                // Insert after WPM but before theme toggle (which is the last child on desktop).
+                const themeToggle = desktopSettingsRow.querySelector('.theme-toggle');
+                if (themeToggle) {
+                    desktopSettingsRow.insertBefore(pauseGroup, themeToggle);
+                } else {
+                    desktopSettingsRow.appendChild(pauseGroup);
+                }
+            }
+        }
     }
 
     // ==================== State Management ====================
