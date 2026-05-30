@@ -1382,3 +1382,32 @@ body.auth-required .modal-backdrop {
    .app-container.reading .status-message rule (around line 546).
    That rule covers both desktop and mobile; no need to duplicate. */
 
+/* ---------- Desktop big hint ---------- */
+
+/* Hidden on desktop by default; JS toggles `hidden` attribute to show. */
+.desktop-big-hint {
+    display: none;
+}
+
+.app-container:not(.is-mobile) .desktop-big-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--serif-font);
+    font-size: clamp(3rem, 6vw, 5rem);
+    color: var(--accent);
+    pointer-events: none;
+    animation: tap-hint-pulse 1.6s ease-in-out infinite;
+    white-space: nowrap;
+    z-index: 2;
+}
+
+/* Show when not hidden via attribute. */
+.app-container:not(.is-mobile) .desktop-big-hint:not([hidden]) {
+    display: block;
+}
+
+/* Reuses the @keyframes tap-hint-pulse defined for mobile (just an
+   opacity 0.55 ↔ 1.0 cycle). If renamed, update both. */
+
