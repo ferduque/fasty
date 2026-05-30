@@ -1316,3 +1316,41 @@ body.auth-required .modal-backdrop {
     padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
+/* ============================================================
+   Desktop reading mode (NOT mobile)
+   ============================================================
+   Mirrors the mobile fade-chrome pattern (see .is-mobile rules
+   above). All scoped via :not(.is-mobile) so the mobile cascade
+   is bit-for-bit unchanged.
+   ============================================================ */
+
+/* RSVP container fills the full viewport on desktop, behind chrome.
+   Word lands at true window center regardless of sidebar state. */
+.app-container:not(.is-mobile) .rsvp-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    flex: none;
+}
+
+/* Chrome elements layer on top of the RSVP container with opaque
+   background so the word doesn't bleed through during paused/idle. */
+.app-container:not(.is-mobile) .sidebar,
+.app-container:not(.is-mobile) .paste-input,
+.app-container:not(.is-mobile) .status-message,
+.app-container:not(.is-mobile) .reader-footer,
+.app-container:not(.is-mobile) .reader-topbar {
+    position: relative;
+    z-index: 2;
+}
+
+.app-container:not(.is-mobile) .paste-input,
+.app-container:not(.is-mobile) .status-message,
+.app-container:not(.is-mobile) .reader-footer,
+.app-container:not(.is-mobile) .reader-topbar {
+    background: var(--bg-primary);
+}
+
