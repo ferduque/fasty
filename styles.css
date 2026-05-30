@@ -1004,3 +1004,232 @@ body.auth-required .modal-backdrop {
   padding: 12px; border: 1px solid var(--accent); border-radius: 8px;
 }
 
+/* ============================================================
+   Mobile (is-mobile)
+   ============================================================
+   Applied via JS-toggled class on .app-container so we don't
+   pay for raw @media rules and so any one-time JS work (select
+   reparenting, copy swap) stays in lockstep with the visual
+   layout.
+   ============================================================ */
+
+/* Hide mobile-only elements on desktop by default. */
+.mobile-topbar,
+.mobile-settings-row,
+.mobile-drawer-backdrop,
+.mobile-tap-hint {
+    display: none;
+}
+
+.app-container.is-mobile {
+    /* dvh handles iOS Safari's collapsing URL bar gracefully where supported. */
+    height: 100vh;
+    height: 100dvh;
+}
+
+.app-container.is-mobile .reader-panel {
+    height: 100vh;
+    height: 100dvh;
+}
+
+/* ---------- Sidebar → slide-in drawer ---------- */
+
+.app-container.is-mobile .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(85vw, 320px);
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    z-index: 50;
+}
+
+.app-container.is-mobile.drawer-open .sidebar {
+    transform: translateX(0);
+}
+
+.app-container.is-mobile .mobile-drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+    z-index: 49;
+}
+
+.app-container.is-mobile.drawer-open .mobile-drawer-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Kill the desktop collapse/expand controls — drawer replaces them. */
+.app-container.is-mobile .sidebar-collapse,
+.app-container.is-mobile .sidebar-expand {
+    display: none !important;
+}
+
+/* ---------- Mobile top bar ---------- */
+
+.app-container.is-mobile .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.mobile-drawer-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color .15s, border-color .15s;
+}
+
+.mobile-drawer-btn:hover,
+.mobile-drawer-btn:active {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.mobile-logo {
+    font-family: var(--serif-font);
+    font-size: 1.25rem;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin: 0;
+    flex: 1;
+    text-align: center;
+}
+
+.mobile-logo .accent { color: var(--accent); }
+
+.mobile-theme-slot {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* ---------- Mobile settings row ---------- */
+
+.app-container.is-mobile .mobile-settings-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    padding: 10px 14px 0;
+}
+
+/* Reparented .setting-group inside .mobile-settings-row */
+.app-container.is-mobile .mobile-settings-row .setting-group {
+    flex: 1;
+}
+
+.app-container.is-mobile .mobile-settings-row .setting-group label {
+    font-size: 0.7rem;
+}
+
+.app-container.is-mobile .mobile-settings-row .setting-group select {
+    font-size: 0.9rem;
+    padding: 0.5rem 0.6rem;
+}
+
+/* ---------- Paste textarea on mobile ---------- */
+
+.app-container.is-mobile .paste-input {
+    padding: 10px 14px 0;
+}
+
+.app-container.is-mobile #text-input {
+    height: 22vh;
+    min-height: 90px;
+}
+
+/* ---------- RSVP word area ---------- */
+
+.app-container.is-mobile .word-display {
+    font-size: clamp(3.5rem, 15vw, 6rem);
+}
+
+/* Compress the guide lines so they don't waste mobile vertical space. */
+.app-container.is-mobile .guide-line-horizontal.top { top: 30%; }
+.app-container.is-mobile .guide-line-horizontal.bottom { bottom: 30%; }
+.app-container.is-mobile .guide-line-vertical.top {
+    top: 30%;
+    height: calc(20% - 40px);
+}
+.app-container.is-mobile .guide-line-vertical.bottom {
+    bottom: 30%;
+    height: calc(20% - 40px);
+}
+
+/* Nav arrows: still visible during paused state, slightly smaller. */
+.app-container.is-mobile .nav-arrow {
+    width: 40px;
+    height: 40px;
+}
+.app-container.is-mobile .nav-prev { left: 0.75rem; }
+.app-container.is-mobile .nav-next { right: 0.75rem; }
+
+/* ---------- "Tap here!" hint ---------- */
+
+.app-container.is-mobile .mobile-tap-hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--serif-font);
+    font-size: clamp(2.25rem, 9vw, 3.75rem);
+    color: var(--accent);
+    pointer-events: none;
+    animation: tap-hint-pulse 1.6s ease-in-out infinite;
+    white-space: nowrap;
+}
+
+/* Only display when not hidden via attribute (JS toggles `hidden`). */
+.app-container.is-mobile .mobile-tap-hint:not([hidden]) {
+    display: block;
+}
+
+@keyframes tap-hint-pulse {
+    0%, 100% { opacity: 0.55; }
+    50% { opacity: 1; }
+}
+
+/* ---------- Footer with safe-area ---------- */
+
+.app-container.is-mobile .reader-footer {
+    padding: 0.75rem 1rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+.app-container.is-mobile .reader-info {
+    font-size: 0.8rem;
+}
+
+.app-container.is-mobile .reader-info .hint {
+    display: none;
+}
+
+/* Hide the desktop sidebar-footer settings + theme-toggle row on mobile
+   because the selects have been moved to .mobile-settings-row and the
+   theme toggle to .mobile-theme-slot. */
+.app-container.is-mobile .sidebar-footer .settings-row {
+    display: none;
+}
+
