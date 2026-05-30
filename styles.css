@@ -576,56 +576,6 @@ body {
     background: var(--text-muted);
 }
 
-/* Responsive - stack on mobile */
-@media (max-width: 768px) {
-    .main-view {
-        flex-direction: column;
-    }
-    
-    .input-panel {
-        width: 100%;
-        min-width: 100%;
-        height: 40vh;
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .reader-panel {
-        height: 60vh;
-    }
-    
-    .word-display {
-        font-size: clamp(2.5rem, 12vw, 4rem);
-    }
-    
-    .guide-line-vertical.top {
-        height: calc(25% - 40px);
-    }
-    
-    .guide-line-vertical.bottom {
-        height: calc(25% - 40px);
-    }
-}
-
-/* Very small screens */
-@media (max-width: 480px) {
-    .input-panel {
-        padding: 1rem;
-    }
-
-    .logo {
-        font-size: 1.5rem;
-    }
-
-    .header {
-        padding-bottom: 0.75rem;
-    }
-
-    .reader-info .hint {
-        display: none;
-    }
-}
-
 /* Toast notifications */
 .toast-stack {
   position: fixed;
