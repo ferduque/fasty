@@ -397,7 +397,7 @@ body {
 /* Word display */
 .word-display {
     font-family: var(--serif-font);
-    font-size: clamp(4rem, 10vw, 7rem);
+    font-size: clamp(4rem, 10vw, 7.5rem);
     font-weight: 400;
     letter-spacing: 0.02em;
     position: absolute;
