@@ -1288,4 +1288,33 @@ document.addEventListener('DOMContentLoaded', () => {
         app.classList.remove('sidebar-collapsed');
         sidebarExpandBtn.hidden = true;
     });
+
+    // ===== Mobile drawer =====
+    const drawerBtn = document.getElementById('mobile-drawer-open');
+    const drawerBackdrop = document.getElementById('mobile-drawer-backdrop');
+    const sidebar = document.getElementById('sidebar');
+
+    function openDrawer() {
+        app.classList.add('drawer-open');
+        // Pause reading when opening the drawer so the user doesn't lose their place.
+        if (window.fastyApp && window.fastyApp.isPlaying) {
+            window.fastyApp.pause();
+        }
+    }
+    function closeDrawer() {
+        app.classList.remove('drawer-open');
+    }
+
+    if (drawerBtn) drawerBtn.addEventListener('click', openDrawer);
+    if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
+
+    // Close drawer when tapping items inside the sidebar that navigate elsewhere.
+    if (sidebar) {
+        sidebar.addEventListener('click', (e) => {
+            if (!app.classList.contains('is-mobile')) return;
+            if (e.target.closest('.lib-item, .session-item, #new-paste, #open-import, #open-leaderboard, #open-upgrade')) {
+                closeDrawer();
+            }
+        });
+    }
 });
