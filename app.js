@@ -33,6 +33,12 @@ class FastyApp {
         this.intervalId = null;
         this.sentencePauseTimeoutId = null;
 
+        // Mobile mode detection — true on narrow viewports OR touch-only devices up to tablet size.
+        this._mobileMql = window.matchMedia('(max-width: 768px), (pointer: coarse) and (max-width: 1024px)');
+        this.isMobile = this._mobileMql.matches;
+        this._currentStatusKey = 'emptyPrompt';
+        this._currentStatusBreak = false;
+
         // Reading-session "bout": filled on play(), flushed on pause/close/unload.
         // { wordsAtStart, startTime, wpmAtStart, sourceDocId, sourcePasteId }
         this._bout = null;
@@ -51,7 +57,8 @@ class FastyApp {
             statusMessage: document.getElementById('status-message'),
             statusText: document.querySelector('.status-text'),
             wordCounter: document.getElementById('word-counter'),
-            progressBar: document.getElementById('progress-bar')
+            progressBar: document.getElementById('progress-bar'),
+            mobileTapHint: document.getElementById('mobile-tap-hint')
         };
         
         this.init();
@@ -93,6 +100,13 @@ class FastyApp {
             }
         });
 
+        // Apply mobile class on load and whenever the media query flips.
+        this.applyMobileMode();
+        this._mobileMql.addEventListener('change', (e) => {
+            this.isMobile = e.matches;
+            this.applyMobileMode();
+        });
+
         // Save progress + flush reading bout on tab unload.
         window.addEventListener('beforeunload', () => {
             this.saveCurrentProgress();
@@ -104,7 +118,7 @@ class FastyApp {
         this.sentencePause = parseInt(this.elements.pauseSelect.value);
         
         // Set initial state
-        this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
+        this.updateStatus('emptyPrompt');
     }
 
     async loadDocument(docId) {
@@ -161,6 +175,7 @@ class FastyApp {
         this.attachTopbarHandlers();
         // Default view = Faithful for any imported document.
         await setView('faithful');
+        this.updateMobileTapHint();
     }
 
     handleReaderClick() {
@@ -209,16 +224,167 @@ class FastyApp {
         this._pageReadContinuation = cont;
     }
     
+    // ==================== Mobile Mode ====================
+
+    /**
+     * Touch-aware copy. Returns the mobile string when isMobile, else desktop.
+     * Used by every updateStatus(...) call so copy stays in sync on resize.
+     */
+    t(key) {
+        const COPY = {
+            emptyPrompt: {
+                desktop: 'Paste text and click here or press <kbd>Space</kbd>',
+                mobile:  'Paste text and tap to start',
+            },
+            readyPrompt: {
+                desktop: 'Click here or press <kbd>Space</kbd> to start',
+                mobile:  '',  // mobile uses the visual #mobile-tap-hint instead
+            },
+            paused: {
+                desktop: 'Paused · Press <kbd>Space</kbd> to continue',
+                mobile:  'Paused · Tap to continue',
+            },
+            paragraphBreak: {
+                desktop: 'End of paragraph · Press <kbd>Space</kbd> to continue',
+                mobile:  'End of paragraph · Tap to continue',
+            },
+            pageBreak: {
+                desktop: 'End of page · <kbd>Space</kbd> for next page',
+                mobile:  'End of page · Tap for next page',
+            },
+            done: {
+                desktop: 'Done · Edit text or press <kbd>Space</kbd> to restart',
+                mobile:  'Done · Tap to restart',
+            },
+            startPrompt: {
+                desktop: 'Press <kbd>Space</kbd> to start',
+                mobile:  'Tap to start',
+            },
+            placeholder: {
+                desktop: 'Paste your text here, then press Space to start reading…',
+                mobile:  'Paste your text here, then tap above to start reading…',
+            },
+        };
+        const entry = COPY[key];
+        if (!entry) return key;
+        return this.isMobile ? entry.mobile : entry.desktop;
+    }
+
+    applyMobileMode() {
+        this.elements.appContainer.classList.toggle('is-mobile', this.isMobile);
+
+        // Reparent setting-groups (WPM, Pause) between desktop sidebar-footer
+        // and mobile settings row. We move the *same* DOM nodes so listeners
+        // and values are preserved — no duplication, no sync logic.
+        const desktopSettingsRow = document.querySelector('.sidebar-footer .settings-row');
+        const mobileSettingsRow = document.getElementById('mobile-settings-row');
+        const wpmGroup = document.getElementById('wpm-select').closest('.setting-group');
+        const pauseGroup = document.getElementById('pause-select').closest('.setting-group');
+
+        if (this.isMobile) {
+            if (wpmGroup && wpmGroup.parentElement !== mobileSettingsRow) {
+                mobileSettingsRow.appendChild(wpmGroup);
+            }
+            if (pauseGroup && pauseGroup.parentElement !== mobileSettingsRow) {
+                mobileSettingsRow.appendChild(pauseGroup);
+            }
+        } else {
+            if (wpmGroup && wpmGroup.parentElement !== desktopSettingsRow) {
+                desktopSettingsRow.insertBefore(wpmGroup, desktopSettingsRow.firstChild);
+            }
+            if (pauseGroup && pauseGroup.parentElement !== desktopSettingsRow) {
+                // Insert after WPM but before theme toggle (which is the last child on desktop).
+                const themeToggle = desktopSettingsRow.querySelector('.theme-toggle');
+                if (themeToggle) {
+                    desktopSettingsRow.insertBefore(pauseGroup, themeToggle);
+                } else {
+                    desktopSettingsRow.appendChild(pauseGroup);
+                }
+            }
+        }
+
+        // Reparent the theme toggle between desktop sidebar-footer and the
+        // mobile top bar's #mobile-theme-slot.
+        const themeToggle = document.getElementById('theme-toggle');
+        const mobileThemeSlot = document.getElementById('mobile-theme-slot');
+        const desktopThemeParent = document.querySelector('.sidebar-footer .settings-row');
+        if (themeToggle) {
+            if (this.isMobile) {
+                if (themeToggle.parentElement !== mobileThemeSlot) {
+                    mobileThemeSlot.appendChild(themeToggle);
+                }
+            } else {
+                if (themeToggle.parentElement !== desktopThemeParent) {
+                    desktopThemeParent.appendChild(themeToggle);
+                }
+            }
+        }
+
+        // Update textarea placeholder for the current mode.
+        if (this.elements.textInput) {
+            this.elements.textInput.placeholder = this.t('placeholder');
+        }
+
+        // Re-render the current status message with the new wording.
+        if (this._currentStatusKey) {
+            this.updateStatus(this._currentStatusKey, this._currentStatusBreak);
+        }
+
+        this.updateMobileTapHint();
+    }
+
     // ==================== State Management ====================
-    
-    updateStatus(message, isBreak = false) {
-        this.elements.statusText.innerHTML = message;
+
+    updateStatus(messageOrKey, isBreak = false) {
+        // If the caller passes a known copy key, look it up; otherwise treat as literal HTML.
+        const COPY_KEYS = ['emptyPrompt', 'readyPrompt', 'paused', 'paragraphBreak', 'pageBreak', 'done', 'startPrompt'];
+        let html;
+        if (COPY_KEYS.includes(messageOrKey)) {
+            this._currentStatusKey = messageOrKey;
+            this._currentStatusBreak = isBreak;
+            html = this.t(messageOrKey);
+        } else {
+            this._currentStatusKey = null;
+            html = messageOrKey;
+        }
+        this.elements.statusText.innerHTML = html;
         this.elements.statusText.classList.toggle('paragraph-break', isBreak);
         this.elements.statusMessage.classList.remove('hidden');
+        // Re-evaluate the visual hint, since its copy depends on _currentStatusKey
+        // ("Tap here!" vs "Next page").
+        this.updateMobileTapHint();
     }
-    
+
     hideStatus() {
         this.elements.statusMessage.classList.add('hidden');
+        this.updateMobileTapHint();
+    }
+
+    /**
+     * Mobile-only: show the visual "Tap here!" hint inside the RSVP area
+     * when text is loaded but reading hasn't started (or is paused before
+     * a paragraph/page boundary). On desktop this is a no-op.
+     */
+    updateMobileTapHint() {
+        if (!this.elements.mobileTapHint) return;
+        const hasText = this.elements.textInput && this.elements.textInput.value.trim().length > 0;
+        const docLoaded = !!this.currentDoc;
+        const textReady = hasText || docLoaded;
+
+        // The big visual hint only appears in two situations:
+        //  (a) Initial state — text/doc loaded but reading has never started → "Tap here!"
+        //  (b) End of a page in document mode → "Next page"
+        // Paragraph breaks and end-of-text use the smaller status message only.
+        const initialState = !this.hasStarted && textReady;
+        const atPageBreak = this._currentStatusKey === 'pageBreak';
+        const shouldShow = this.isMobile && !this.isPlaying && (initialState || atPageBreak);
+
+        if (shouldShow) {
+            this.elements.mobileTapHint.textContent = atPageBreak ? 'Next page' : 'Tap here!';
+            this.elements.mobileTapHint.hidden = false;
+        } else {
+            this.elements.mobileTapHint.hidden = true;
+        }
     }
     
     setReadingState(reading) {
@@ -233,13 +399,14 @@ class FastyApp {
         if (this.hasStarted) {
             this.reset();
         }
-        
+
         const hasText = this.elements.textInput.value.trim().length > 0;
         if (hasText) {
-            this.updateStatus('Click here or press <kbd>Space</kbd> to start');
+            this.updateStatus('readyPrompt');
         } else {
-            this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
+            this.updateStatus('emptyPrompt');
         }
+        this.updateMobileTapHint();
     }
     
     onWpmChange() {
@@ -396,7 +563,7 @@ class FastyApp {
         const text = this.elements.textInput.value;
 
         if (!text.trim()) {
-            this.updateStatus('Paste text and press <kbd>Space</kbd> to start');
+            this.updateStatus('emptyPrompt');
             return;
         }
 
@@ -428,8 +595,9 @@ class FastyApp {
 
         // Start playing
         this.play();
+        this.updateMobileTapHint();
     }
-    
+
     reset() {
         this.pause();
         this.words = [];
@@ -446,6 +614,7 @@ class FastyApp {
         this.elements.wordCounter.textContent = '0 / 0';
         this.setReadingState(false);
         this.elements.appContainer.classList.remove('paused');
+        this.updateMobileTapHint();
     }
     
     togglePlayPause() {
@@ -489,6 +658,8 @@ class FastyApp {
         if (!this._autosaveInterval) {
             this._autosaveInterval = setInterval(() => this.saveCurrentProgress(), 5000);
         }
+
+        this.updateMobileTapHint();
     }
 
     /**
@@ -537,10 +708,12 @@ class FastyApp {
         this._flushReadingBout();
 
         if (this.hasStarted && this.currentWordIndex < this.words.length) {
-            this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
+            this.updateStatus('paused');
         }
+
+        this.updateMobileTapHint();
     }
-    
+
     /**
      * Check if a word ends with sentence-ending punctuation
      */
@@ -666,14 +839,14 @@ class FastyApp {
     // ==================== Paragraph Handling ====================
     
     showParagraphBreak() {
-        this.updateStatus('End of paragraph · Press <kbd>Space</kbd> to continue', true);
+        this.updateStatus('paragraphBreak', true);
     }
     
     showEndOfText() {
         if (this._pageReadContinuation) {
-            this.updateStatus('End of page · <kbd>Space</kbd> for next page', true);
+            this.updateStatus('pageBreak', true);
         } else {
-            this.updateStatus('Done · Edit text or press <kbd>Space</kbd> to restart', true);
+            this.updateStatus('done', true);
         }
     }
     
@@ -714,7 +887,7 @@ class FastyApp {
             this.displayCurrentWord();
             this.updateWordCounter();
             this.updateProgressBar();
-            this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
+            this.updateStatus('paused');
         }
     }
     
@@ -725,7 +898,7 @@ class FastyApp {
             this.displayCurrentWord();
             this.updateWordCounter();
             this.updateProgressBar();
-            this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
+            this.updateStatus('paused');
         }
     }
     
@@ -868,7 +1041,7 @@ class FastyApp {
 
         this.elements.wordDisplay.classList.remove('visible');
         this.clearWordDisplay();
-        this.updateStatus('Paste text and press <kbd>Space</kbd> to start');
+        this.updateStatus('emptyPrompt');
         const ta = this.elements.textInput;
         if (ta) ta.focus();
     }
@@ -889,7 +1062,7 @@ class FastyApp {
             this.elements.textInput.setSelectionRange(0, 0);
         }
         setActiveSession(s.id);
-        this.updateStatus('Press <kbd>Space</kbd> to start');
+        this.updateStatus('startPrompt');
     }
 
     /**
@@ -1002,7 +1175,7 @@ class FastyApp {
         document.querySelector('.app-container').classList.remove('view-faithful');
         this.elements.wordDisplay.classList.remove('visible');
         this.clearWordDisplay();
-        this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
+        this.updateStatus('emptyPrompt');
     }
 
     jumpToChapter(i) {
@@ -1224,4 +1397,33 @@ document.addEventListener('DOMContentLoaded', () => {
         app.classList.remove('sidebar-collapsed');
         sidebarExpandBtn.hidden = true;
     });
+
+    // ===== Mobile drawer =====
+    const drawerBtn = document.getElementById('mobile-drawer-open');
+    const drawerBackdrop = document.getElementById('mobile-drawer-backdrop');
+    const sidebar = document.getElementById('sidebar');
+
+    function openDrawer() {
+        app.classList.add('drawer-open');
+        // Pause reading when opening the drawer so the user doesn't lose their place.
+        if (window.fastyApp && window.fastyApp.isPlaying) {
+            window.fastyApp.pause();
+        }
+    }
+    function closeDrawer() {
+        app.classList.remove('drawer-open');
+    }
+
+    if (drawerBtn) drawerBtn.addEventListener('click', openDrawer);
+    if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
+
+    // Close drawer when tapping items inside the sidebar that navigate elsewhere.
+    if (sidebar) {
+        sidebar.addEventListener('click', (e) => {
+            if (!app.classList.contains('is-mobile')) return;
+            if (e.target.closest('.lib-item, .session-item, #new-paste, #open-import, #open-leaderboard, #open-upgrade')) {
+                closeDrawer();
+            }
+        });
+    }
 });
