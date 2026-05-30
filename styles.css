@@ -1382,6 +1382,26 @@ body.auth-required .modal-backdrop {
    .app-container.reading .status-message rule (around line 546).
    That rule covers both desktop and mobile; no need to duplicate. */
 
+/* ---------- Pin desktop footer to bottom ---------- */
+
+/* Without this, removing the RSVP container from the flex flow (it's now
+   position: fixed) leaves nothing absorbing the remaining height, so the
+   footer floats up to right under the (faded) paste-input instead of
+   sitting at the bottom. margin-top: auto pushes it back down. Mobile
+   already does this via its own .is-mobile.reader-footer rule. */
+.app-container:not(.is-mobile) .reader-footer {
+    margin-top: auto;
+}
+
+/* ---------- Hide reading progress bar ---------- */
+
+/* Distraction during reading; the counter (X / N) already conveys progress
+   and Fernando asked for it gone. JS still updates #progress-bar width
+   harmlessly — keeping it in the DOM avoids a code change. */
+.progress-container {
+    display: none;
+}
+
 /* ---------- Desktop big hint ---------- */
 
 /* Hidden on desktop by default; JS toggles `hidden` attribute to show. */
