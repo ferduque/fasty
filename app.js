@@ -33,6 +33,10 @@ class FastyApp {
         this.intervalId = null;
         this.sentencePauseTimeoutId = null;
 
+        // Mobile mode detection — true on narrow viewports OR touch-only devices up to tablet size.
+        this._mobileMql = window.matchMedia('(max-width: 768px), (pointer: coarse) and (max-width: 1024px)');
+        this.isMobile = this._mobileMql.matches;
+
         // Reading-session "bout": filled on play(), flushed on pause/close/unload.
         // { wordsAtStart, startTime, wpmAtStart, sourceDocId, sourcePasteId }
         this._bout = null;
@@ -91,6 +95,13 @@ class FastyApp {
             if (this.hasStarted) {
                 this.centerORPLetter();
             }
+        });
+
+        // Apply mobile class on load and whenever the media query flips.
+        this.applyMobileMode();
+        this._mobileMql.addEventListener('change', (e) => {
+            this.isMobile = e.matches;
+            this.applyMobileMode();
         });
 
         // Save progress + flush reading bout on tab unload.
@@ -209,8 +220,14 @@ class FastyApp {
         this._pageReadContinuation = cont;
     }
     
+    // ==================== Mobile Mode ====================
+
+    applyMobileMode() {
+        this.elements.appContainer.classList.toggle('is-mobile', this.isMobile);
+    }
+
     // ==================== State Management ====================
-    
+
     updateStatus(message, isBreak = false) {
         this.elements.statusText.innerHTML = message;
         this.elements.statusText.classList.toggle('paragraph-break', isBreak);
