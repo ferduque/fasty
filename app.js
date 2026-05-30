@@ -36,6 +36,8 @@ class FastyApp {
         // Mobile mode detection — true on narrow viewports OR touch-only devices up to tablet size.
         this._mobileMql = window.matchMedia('(max-width: 768px), (pointer: coarse) and (max-width: 1024px)');
         this.isMobile = this._mobileMql.matches;
+        this._currentStatusKey = 'emptyPrompt';
+        this._currentStatusBreak = false;
 
         // Reading-session "bout": filled on play(), flushed on pause/close/unload.
         // { wordsAtStart, startTime, wpmAtStart, sourceDocId, sourcePasteId }
@@ -115,7 +117,7 @@ class FastyApp {
         this.sentencePause = parseInt(this.elements.pauseSelect.value);
         
         // Set initial state
-        this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
+        this.updateStatus('emptyPrompt');
     }
 
     async loadDocument(docId) {
@@ -222,6 +224,50 @@ class FastyApp {
     
     // ==================== Mobile Mode ====================
 
+    /**
+     * Touch-aware copy. Returns the mobile string when isMobile, else desktop.
+     * Used by every updateStatus(...) call so copy stays in sync on resize.
+     */
+    t(key) {
+        const COPY = {
+            emptyPrompt: {
+                desktop: 'Paste text and click here or press <kbd>Space</kbd>',
+                mobile:  'Paste text and tap to start',
+            },
+            readyPrompt: {
+                desktop: 'Click here or press <kbd>Space</kbd> to start',
+                mobile:  '',  // mobile uses the visual #mobile-tap-hint instead
+            },
+            paused: {
+                desktop: 'Paused · Press <kbd>Space</kbd> to continue',
+                mobile:  'Paused · Tap to continue',
+            },
+            paragraphBreak: {
+                desktop: 'End of paragraph · Press <kbd>Space</kbd> to continue',
+                mobile:  'End of paragraph · Tap to continue',
+            },
+            pageBreak: {
+                desktop: 'End of page · <kbd>Space</kbd> for next page',
+                mobile:  'End of page · Tap for next page',
+            },
+            done: {
+                desktop: 'Done · Edit text or press <kbd>Space</kbd> to restart',
+                mobile:  'Done · Tap to restart',
+            },
+            startPrompt: {
+                desktop: 'Press <kbd>Space</kbd> to start',
+                mobile:  'Tap to start',
+            },
+            placeholder: {
+                desktop: 'Paste your text here, then press Space to start reading…',
+                mobile:  'Paste your text here, then tap above to start reading…',
+            },
+        };
+        const entry = COPY[key];
+        if (!entry) return key;
+        return this.isMobile ? entry.mobile : entry.desktop;
+    }
+
     applyMobileMode() {
         this.elements.appContainer.classList.toggle('is-mobile', this.isMobile);
 
@@ -271,12 +317,33 @@ class FastyApp {
                 }
             }
         }
+
+        // Update textarea placeholder for the current mode.
+        if (this.elements.textInput) {
+            this.elements.textInput.placeholder = this.t('placeholder');
+        }
+
+        // Re-render the current status message with the new wording.
+        if (this._currentStatusKey) {
+            this.updateStatus(this._currentStatusKey, this._currentStatusBreak);
+        }
     }
 
     // ==================== State Management ====================
 
-    updateStatus(message, isBreak = false) {
-        this.elements.statusText.innerHTML = message;
+    updateStatus(messageOrKey, isBreak = false) {
+        // If the caller passes a known copy key, look it up; otherwise treat as literal HTML.
+        const COPY_KEYS = ['emptyPrompt', 'readyPrompt', 'paused', 'paragraphBreak', 'pageBreak', 'done', 'startPrompt'];
+        let html;
+        if (COPY_KEYS.includes(messageOrKey)) {
+            this._currentStatusKey = messageOrKey;
+            this._currentStatusBreak = isBreak;
+            html = this.t(messageOrKey);
+        } else {
+            this._currentStatusKey = null;
+            html = messageOrKey;
+        }
+        this.elements.statusText.innerHTML = html;
         this.elements.statusText.classList.toggle('paragraph-break', isBreak);
         this.elements.statusMessage.classList.remove('hidden');
     }
@@ -300,9 +367,9 @@ class FastyApp {
         
         const hasText = this.elements.textInput.value.trim().length > 0;
         if (hasText) {
-            this.updateStatus('Click here or press <kbd>Space</kbd> to start');
+            this.updateStatus('readyPrompt');
         } else {
-            this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
+            this.updateStatus('emptyPrompt');
         }
     }
     
@@ -460,7 +527,7 @@ class FastyApp {
         const text = this.elements.textInput.value;
 
         if (!text.trim()) {
-            this.updateStatus('Paste text and press <kbd>Space</kbd> to start');
+            this.updateStatus('emptyPrompt');
             return;
         }
 
@@ -601,7 +668,7 @@ class FastyApp {
         this._flushReadingBout();
 
         if (this.hasStarted && this.currentWordIndex < this.words.length) {
-            this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
+            this.updateStatus('paused');
         }
     }
     
@@ -730,14 +797,14 @@ class FastyApp {
     // ==================== Paragraph Handling ====================
     
     showParagraphBreak() {
-        this.updateStatus('End of paragraph · Press <kbd>Space</kbd> to continue', true);
+        this.updateStatus('paragraphBreak', true);
     }
     
     showEndOfText() {
         if (this._pageReadContinuation) {
-            this.updateStatus('End of page · <kbd>Space</kbd> for next page', true);
+            this.updateStatus('pageBreak', true);
         } else {
-            this.updateStatus('Done · Edit text or press <kbd>Space</kbd> to restart', true);
+            this.updateStatus('done', true);
         }
     }
     
@@ -778,7 +845,7 @@ class FastyApp {
             this.displayCurrentWord();
             this.updateWordCounter();
             this.updateProgressBar();
-            this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
+            this.updateStatus('paused');
         }
     }
     
@@ -789,7 +856,7 @@ class FastyApp {
             this.displayCurrentWord();
             this.updateWordCounter();
             this.updateProgressBar();
-            this.updateStatus('Paused · Press <kbd>Space</kbd> to continue');
+            this.updateStatus('paused');
         }
     }
     
@@ -932,7 +999,7 @@ class FastyApp {
 
         this.elements.wordDisplay.classList.remove('visible');
         this.clearWordDisplay();
-        this.updateStatus('Paste text and press <kbd>Space</kbd> to start');
+        this.updateStatus('emptyPrompt');
         const ta = this.elements.textInput;
         if (ta) ta.focus();
     }
@@ -953,7 +1020,7 @@ class FastyApp {
             this.elements.textInput.setSelectionRange(0, 0);
         }
         setActiveSession(s.id);
-        this.updateStatus('Press <kbd>Space</kbd> to start');
+        this.updateStatus('startPrompt');
     }
 
     /**
@@ -1066,7 +1133,7 @@ class FastyApp {
         document.querySelector('.app-container').classList.remove('view-faithful');
         this.elements.wordDisplay.classList.remove('visible');
         this.clearWordDisplay();
-        this.updateStatus('Paste text and click here or press <kbd>Space</kbd>');
+        this.updateStatus('emptyPrompt');
     }
 
     jumpToChapter(i) {
