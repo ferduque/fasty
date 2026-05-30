@@ -254,6 +254,23 @@ class FastyApp {
                 }
             }
         }
+
+        // Reparent the theme toggle between desktop sidebar-footer and the
+        // mobile top bar's #mobile-theme-slot.
+        const themeToggle = document.getElementById('theme-toggle');
+        const mobileThemeSlot = document.getElementById('mobile-theme-slot');
+        const desktopThemeParent = document.querySelector('.sidebar-footer .settings-row');
+        if (themeToggle) {
+            if (this.isMobile) {
+                if (themeToggle.parentElement !== mobileThemeSlot) {
+                    mobileThemeSlot.appendChild(themeToggle);
+                }
+            } else {
+                if (themeToggle.parentElement !== desktopThemeParent) {
+                    desktopThemeParent.appendChild(themeToggle);
+                }
+            }
+        }
     }
 
     // ==================== State Management ====================
