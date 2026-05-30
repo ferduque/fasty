@@ -350,10 +350,14 @@ class FastyApp {
         this.elements.statusText.innerHTML = html;
         this.elements.statusText.classList.toggle('paragraph-break', isBreak);
         this.elements.statusMessage.classList.remove('hidden');
+        // Re-evaluate the visual hint, since its copy depends on _currentStatusKey
+        // ("Tap here!" vs "Next page").
+        this.updateMobileTapHint();
     }
-    
+
     hideStatus() {
         this.elements.statusMessage.classList.add('hidden');
+        this.updateMobileTapHint();
     }
 
     /**
@@ -366,8 +370,21 @@ class FastyApp {
         const hasText = this.elements.textInput && this.elements.textInput.value.trim().length > 0;
         const docLoaded = !!this.currentDoc;
         const textReady = hasText || docLoaded;
-        const shouldShow = this.isMobile && textReady && !this.isPlaying;
-        this.elements.mobileTapHint.hidden = !shouldShow;
+
+        // The big visual hint only appears in two situations:
+        //  (a) Initial state — text/doc loaded but reading has never started → "Tap here!"
+        //  (b) End of a page in document mode → "Next page"
+        // Paragraph breaks and end-of-text use the smaller status message only.
+        const initialState = !this.hasStarted && textReady;
+        const atPageBreak = this._currentStatusKey === 'pageBreak';
+        const shouldShow = this.isMobile && !this.isPlaying && (initialState || atPageBreak);
+
+        if (shouldShow) {
+            this.elements.mobileTapHint.textContent = atPageBreak ? 'Next page' : 'Tap here!';
+            this.elements.mobileTapHint.hidden = false;
+        } else {
+            this.elements.mobileTapHint.hidden = true;
+        }
     }
     
     setReadingState(reading) {

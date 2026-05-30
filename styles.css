@@ -1211,7 +1211,10 @@ body.auth-required .modal-backdrop {
 /* ---------- RSVP word area ---------- */
 
 .app-container.is-mobile .word-display {
-    font-size: clamp(3.5rem, 15vw, 6rem);
+    /* Tuned so long words (≤14 chars) fit on a 320px-wide phone without
+       clipping. Bigger than desktop default, smaller than the previous
+       15vw which was overflowing on real iPhones. */
+    font-size: clamp(2.25rem, 11vw, 3.75rem);
 }
 
 /* Compress the guide lines so they don't waste mobile vertical space. */
@@ -1226,13 +1229,12 @@ body.auth-required .modal-backdrop {
     height: calc(20% - 40px);
 }
 
-/* Nav arrows: still visible during paused state, slightly smaller. */
+/* Nav arrows hidden on mobile — no hover affordance on touch and they
+   crowd the word area. Mobile users tap-anywhere to pause; granular
+   word-by-word navigation is a desktop affordance. */
 .app-container.is-mobile .nav-arrow {
-    width: 40px;
-    height: 40px;
+    display: none !important;
 }
-.app-container.is-mobile .nav-prev { left: 0.75rem; }
-.app-container.is-mobile .nav-next { right: 0.75rem; }
 
 /* ---------- "Tap here!" hint ---------- */
 
