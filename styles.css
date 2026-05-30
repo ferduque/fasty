@@ -48,8 +48,10 @@
 
 html, body {
     height: 100%;
+    width: 100%;
     overflow: hidden;
     overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -1023,17 +1025,30 @@ body.auth-required .modal-backdrop {
 }
 
 .app-container.is-mobile {
-    /* dvh handles iOS Safari's collapsing URL bar gracefully where supported. */
+    /* Hard-lock the viewport on mobile: position:fixed + inset:0 prevents
+       any scroll (iOS rubber-band, browser-side scroll, accidental overflow).
+       touch-action:manipulation kills double-tap-to-zoom while still allowing
+       single taps and internal textarea scroll. */
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .app-container.is-mobile .reader-panel {
+    width: 100%;
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
     position: relative;
+    max-width: 100vw;
 }
 
 /* RSVP container fills the full reader-panel viewport. Word + tap hint
@@ -1085,11 +1100,13 @@ body.auth-required .modal-backdrop {
     position: fixed;
     top: 0;
     left: 0;
-    bottom: 0;
+    height: 100vh;
+    height: 100dvh;
     width: min(85vw, 320px);
     transform: translateX(-100%);
     transition: transform 0.22s ease;
     z-index: 50;
+    overflow-y: auto;
 }
 
 .app-container.is-mobile.drawer-open .sidebar {
@@ -1126,6 +1143,12 @@ body.auth-required .modal-backdrop {
     justify-content: space-between;
     gap: 8px;
     padding: 10px 14px;
+    /* viewport-fit=cover lets the page extend behind the iPhone notch /
+       Dynamic Island, so we need explicit top padding to push our chrome
+       below it. max() keeps a sensible minimum on phones without a notch. */
+    padding-top: max(10px, env(safe-area-inset-top));
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
     border-bottom: 1px solid var(--border-color);
     background: var(--bg-secondary);
     flex-shrink: 0;
@@ -1206,6 +1229,10 @@ body.auth-required .modal-backdrop {
     height: 18vh;
     height: 18dvh;
     min-height: 80px;
+    /* iOS auto-zooms on focus when input font-size < 16px. Force 16px to
+       prevent that surprise zoom; visual size stays close to the desktop
+       0.95rem (15.2px). */
+    font-size: 16px;
 }
 
 /* ---------- RSVP word area ---------- */
