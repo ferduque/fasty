@@ -1,0 +1,81 @@
+#!/bin/sh
+# Fasty pre-push guard — refuses to push code that would break the live site.
+#
+# Two gates:
+#   1. Runs tools/healthcheck.mjs (broken links, syntax, cache mismatch, DOM ids).
+#      Blocks the push if it finds any ERROR.
+#   2. Cache-bump guard: if the commits you're pushing change shipped code
+#      (app.js / styles.css / src/**) but you forgot to bump ?v=N in index.html,
+#      it blocks — otherwise visitors keep getting the OLD code (Fasty's #1 footgun).
+#
+# Installed via:  git config core.hooksPath tools/hooks
+# Double-click "Install Safety Net.command" to (re)install it.
+#
+# Fail-open ONLY if Node truly can't be found, so an environment quirk never
+# wedges your ability to push — but it tells you loudly to run the check by hand.
+
+set -u
+ZERO="0000000000000000000000000000000000000000"
+
+# --- run from the repo root regardless of where git invoked us ---
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || ROOT="."
+cd "$ROOT" || exit 0
+
+# --- locate node robustly (GUI git clients often have a minimal PATH) ---
+NODE_BIN="$(command -v node 2>/dev/null || true)"
+if [ -z "$NODE_BIN" ]; then
+  for cand in /opt/homebrew/bin/node /usr/local/bin/node /usr/bin/node; do
+    if [ -x "$cand" ]; then NODE_BIN="$cand"; break; fi
+  done
+fi
+
+# ============================================================
+# Gate 1 — health check (broken links / syntax / cache / DOM)
+# ============================================================
+if [ -n "$NODE_BIN" ] && [ -f tools/healthcheck.mjs ]; then
+  if ! "$NODE_BIN" tools/healthcheck.mjs; then
+    echo ""
+    echo "🛑 Push blocked: the health check found errors (see above)."
+    echo "   Fix them, then push again. Need help? Double-click \"Check Fasty.command\"."
+    exit 1
+  fi
+elif [ -z "$NODE_BIN" ]; then
+  echo "⚠️  Fasty guard: Node not found, so I could not auto-check this push."
+  echo "   Please double-click \"Check Fasty.command\" before trusting this deploy."
+  # fail-open: do not block solely because the environment lacks node.
+fi
+
+# ============================================================
+# Gate 2 — cache-buster bump guard (git-aware)
+# ============================================================
+# Reads each ref being pushed from stdin:  <local_ref> <local_sha> <remote_ref> <remote_sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "${local_sha:-}" ] && continue
+  [ "$local_sha" = "$ZERO" ] && continue            # branch deletion
+
+  if [ "$remote_sha" = "$ZERO" ] || [ -z "${remote_sha:-}" ]; then
+    # New remote ref: compare against origin/main if we have it, else skip.
+    base="$(git rev-parse --verify --quiet origin/main 2>/dev/null || true)"
+  else
+    base="$remote_sha"
+  fi
+  [ -z "$base" ] && continue                         # no baseline to compare → skip
+
+  # Did this push touch shipped frontend code?
+  changed="$(git diff --name-only "$base" "$local_sha" 2>/dev/null)"
+  echo "$changed" | grep -Eq '^(app\.js|styles\.css|src/)' || continue
+
+  # Compare the ?v=N token in index.html across the range.
+  old_v="$(git show "$base:index.html" 2>/dev/null | grep -oE '[?]v=[0-9]+' | head -1)"
+  new_v="$(git show "$local_sha:index.html" 2>/dev/null | grep -oE '[?]v=[0-9]+' | head -1)"
+
+  if [ -n "$old_v" ] && [ "$old_v" = "$new_v" ]; then
+    echo ""
+    echo "🛑 Push blocked: you changed app code but did NOT bump the cache number."
+    echo "   index.html still says ${new_v}. Visitors would keep loading the OLD code."
+    echo "   Fix: bump every ?v= in index.html to the next number (e.g. ${new_v} → higher), commit, push again."
+    exit 1
+  fi
+done
+
+exit 0
