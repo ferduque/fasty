@@ -133,6 +133,42 @@ hard-reload `getfasty.com` and click through the changed flow. The plan in
 `docs/superpowers/plans/2026-05-27-monetization-and-leaderboard.md` documents
 this convention.
 
+But there **is** a mechanical pre-ship gate — run it before trusting any change:
+
+```bash
+node tools/healthcheck.mjs
+```
+
+See the Safety net section below.
+
+## Safety net (added Jun 2 2026)
+
+`tools/healthcheck.mjs` is a zero-dependency, deterministic checker for the ways
+this no-build ES-module app breaks. It catches 8 classes: (1) broken file links
+in imports / `<script src>` / `<link href>`, (2) JS syntax errors, (3) `?v=N`
+cache-buster mismatches, (4) missing DOM ids, (5) **named-export mismatches**
+(`import { foo }` where the target no longer exports `foo` — the #1 refactor
+footgun, invisible to a syntax check), (6) leaked secrets (credential filenames +
+`GOCSPX-`/`sk_live_`/`whsec_`/PEM/`service_role` JWT strings anywhere in the
+served tree), (7) bad `public-config.js` (URL shape + anon-JWT role/ref/exp;
+errors if a `service_role` key is exposed), (8) deploy over-exposure (wrangler
+`assets.directory="."` with no `.assetsignore`). Exit code: 0 = no errors,
+1 = ≥1 error; warnings never fail.
+
+- **`tools/hooks/pre-push`** (active via `git config core.hooksPath tools/hooks`)
+  blocks a push on any health-check error AND on the "changed shipped code but
+  forgot to bump `?v=`" footgun. Fail-open only if Node can't be found.
+- **Double-clickable** (Fernando's preferred UX): `Check Fasty.command` runs the
+  check; `Install Safety Net.command` re-arms the hook on a fresh clone.
+- **`.assetsignore`** stops Cloudflare from serving `supabase/`, `docs/`,
+  `tools/`, `*.md`, configs, and secrets publicly. **Do not delete it** — without
+  it `assets.directory="."` serves the entire repo at getfasty.com.
+- The real Google OAuth `client_secret` lives in `~/.config/fasty/` (outside the
+  repo); `.gitignore` blocks re-introducing any `client_secret*.json` / `*.pem`.
+
+When you add a check or fix a false positive, validate against a fixture (inject
+the fault, confirm it fires; confirm 0 false positives on the real tree).
+
 ## MCP servers used
 
 - **Supabase MCP** (`.mcp.json`) — apply migrations, run SQL, deploy edge
