@@ -1,0 +1,36 @@
+# Cloudflare Workers Assets — files here are NOT published to getfasty.com.
+# Without this, assets.directory="." in wrangler.jsonc serves the ENTIRE repo
+# publicly (backend source, docs, config, secrets). Keep this list tight: only
+# the frontend (index.html, app.js, styles.css, src/**, images) should ship.
+
+# backend / tooling / docs — must never be public
+supabase/
+docs/
+tools/
+.github/
+
+# config & metadata
+wrangler.jsonc
+netlify.toml
+.gitignore
+.assetsignore
+.mcp.json
+.env*
+.dev.vars*
+
+# project docs & instructions (leak architecture + secret-handling notes)
+*.md
+
+# secrets / credentials (belt-and-suspenders; also gitignored)
+client_secret*.json
+*credentials*.json
+service-account*.json
+*.pem
+
+# local helper scripts (not part of the site)
+*.command
+
+# vcs / dev workspace
+.git/
+.worktrees/
+.DS_Store

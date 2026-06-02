@@ -10,3 +10,12 @@
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+# secrets / credentials — NEVER commit these (the OAuth client_secret lives in
+# ~/.config/fasty/ now, outside the repo). These patterns stop an accidental
+# `git add .` from ever staging a secret again.
+client_secret*.json
+*credentials*.json
+service-account*.json
+*.pem
+.mcp.json
