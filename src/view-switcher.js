@@ -48,16 +48,18 @@ export async function setView(name) {
     }
   } else {
     const src = appRef.currentDoc.source;
-    // EPUB/PDF page view needs the original file, but the cloud syncs a doc's
-    // text — not the file (binary is local-only). A doc synced from another
-    // device therefore has no binary; render it with the reformatted-text view
-    // (same paginate + click-to-read flow) instead of crashing on a null binary.
-    const needsBinary = src === 'epub' || src === 'pdf';
-    const textFallback = needsBinary && !appRef.currentDoc.binary;
-    const factory = textFallback ? viewFactories['txt'] : viewFactories[src];
+    const noFile = !appRef.currentDoc.binary;
+    // EPUBs are reflowable (no fixed page layout) and the epub.js renderer gets
+    // stuck on mobile, so render every EPUB as clean paginated text. PDFs have a
+    // true fixed layout: use the PDF renderer when the file is on this device,
+    // and fall back to reformatted text when it isn't (a doc synced from another
+    // device carries its text but not the original file — binary is local-only).
+    const useText = src === 'epub' || (src === 'pdf' && noFile);
+    const factory = useText ? viewFactories['txt'] : viewFactories[src];
     if (!factory) { console.warn('No faithful view for', src); return; }
     appRef.pause();
-    if (textFallback) {
+    if (useText && noFile) {
+      // Synced from another device: explain why the original layout isn't shown.
       try {
         const { toast } = await import('./toasts.js');
         toast('Synced from another device — showing reformatted text. Re-import the file here for the original layout.', { duration: 5000 });
