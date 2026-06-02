@@ -1377,24 +1377,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cloud.currentUser()) unlockAuthClosed();
         else lockAuthOpen();
         cloud.onAuthChange(async (user) => {
-            // Account isolation must run BEFORE migrate + pull so any purge
-            // happens before downstream sync writes new rows.
-            await applyAccountIsolation(user);
+            try {
+                // Account isolation must run BEFORE migrate + pull so any purge
+                // happens before downstream sync writes new rows. It returns
+                // false when a required purge was blocked — skip sync if so.
+                const safeToSync = await applyAccountIsolation(user);
 
-            if (user) {
-                unlockAuthClosed();
-                // First sign-in on this device pushes existing local data up.
-                await migrateLocalToCloudIfNeeded();
-                // And pulls anything else from the account back down.
-                await pullCloudIntoLocal();
-                // First-time-sign-in: prompt for display name + country + opt-in.
-                await maybeShowOnboarding();
-            } else {
-                lockAuthOpen();
+                if (user && safeToSync) {
+                    // First sign-in on this device pushes existing local data up.
+                    await migrateLocalToCloudIfNeeded();
+                    // And pulls anything else from the account back down.
+                    await pullCloudIntoLocal();
+                }
+                if (user) {
+                    // First-time-sign-in: prompt for display name + country + opt-in.
+                    await maybeShowOnboarding();
+                }
+            } catch (err) {
+                console.error('auth-change handler failed:', err);
+            } finally {
+                // Always reconcile the gate + sidebar, even if something above
+                // threw, so the auth modal can never get stuck open/closed.
+                if (user) unlockAuthClosed(); else lockAuthOpen();
+                refreshLibrary();
+                refreshPasteSessions();
             }
-            // Refresh sidebar either way (sign-in adds rows, sign-out resets local).
-            refreshLibrary();
-            refreshPasteSessions();
         });
     });
     initLeaderboard();

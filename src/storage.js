@@ -68,20 +68,24 @@ async function purgeLocalIDB() {
     } catch (_) {}
     dbPromise = null;
   }
-  await new Promise((resolve) => {
+  const deleted = await new Promise((resolve) => {
     const req = indexedDB.deleteDatabase(DB_NAME);
-    req.onsuccess = () => resolve();
-    req.onerror = () => resolve(); // best-effort, don't throw on the auth flow
-    req.onblocked = () => resolve(); // another tab still has the DB open
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => resolve(false);   // deletion failed — NOT purged
+    req.onblocked = () => resolve(false); // another tab still has the DB open — NOT purged
   });
-  // Wipe per-user migration flags. A new sign-in will set its own flag
-  // after running migrate cleanly.
-  for (let i = localStorage.length - 1; i >= 0; i--) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith('fasty.migratedAt.')) {
-      localStorage.removeItem(key);
-    }
+  // Only on a CONFIRMED delete do we wipe per-user migration flags. If the
+  // delete was blocked, the data is still here; the caller must not claim
+  // ownership for a new account (that is the cross-account leak we prevent).
+  if (deleted) {
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('fasty.migratedAt.')) localStorage.removeItem(key);
+      }
+    } catch (_) {}
   }
+  return deleted;
 }
 
 function tx(storeNames, mode = 'readonly') {
@@ -130,10 +134,12 @@ export async function pullCloudIntoLocal() {
       cloud.cloudListSessions().catch(() => []),
     ]);
     if (docs.length) {
-      const t = await tx(['documents', 'progress'], 'readwrite');
-      const docStore = t.objectStore('documents');
-      const progressStore = t.objectStore('progress');
-      for (const d of docs) {
+      // Resolve ALL async work (cover fetch + progress) BEFORE opening the IDB
+      // transaction. An IndexedDB transaction auto-commits the moment control
+      // returns to the event loop with no pending request, so awaiting fetch()
+      // *inside* the tx silently closes it and drops every put (this used to
+      // make a Pro user's new-device sync pull zero documents, with no error).
+      const prepared = await Promise.all(docs.map(async (d) => {
         // For cloud-only docs we have no cover Blob locally yet — resolve a
         // signed URL and lazy-fetch to a Blob so the library list still shows
         // a thumbnail. If the fetch fails we leave cover=null (library card
@@ -148,10 +154,22 @@ export async function pullCloudIntoLocal() {
             }
           } catch (_) {}
         }
-        await awaitRequest(docStore.put({ ...d, cover: coverBlob }));
         const progress = await cloud.cloudGetProgress(d.id).catch(() => null);
-        if (progress) await awaitRequest(progressStore.put({ ...progress, documentId: d.id, updatedAt: progress.updatedAt || Date.now() }));
+        return { doc: { ...d, cover: coverBlob }, progress };
+      }));
+
+      const t = await tx(['documents', 'progress'], 'readwrite');
+      const docStore = t.objectStore('documents');
+      const progressStore = t.objectStore('progress');
+      for (const { doc, progress } of prepared) {
+        docStore.put(doc);                                  // synchronous — no await between puts
+        if (progress) progressStore.put({ ...progress, documentId: doc.id, updatedAt: progress.updatedAt || Date.now() });
       }
+      await new Promise((resolve, reject) => {
+        t.oncomplete = () => resolve();
+        t.onerror = () => reject(t.error);
+        t.onabort = () => reject(t.error || new Error('pull transaction aborted'));
+      });
     }
     if (sessions.length) {
       const t = await tx(['paste_sessions'], 'readwrite');
@@ -266,6 +284,15 @@ export function deriveSessionTitle(text) {
 const OWNER_KEY = 'fasty.localOwner';
 const ANONYMOUS = 'anonymous';
 
+// localStorage can throw in hardened/private-mode browsers. These guards keep
+// a storage failure from rejecting the whole auth-change chain.
+function safeGetOwner() {
+  try { return localStorage.getItem(OWNER_KEY); } catch (_) { return null; }
+}
+function safeSetOwner(value) {
+  try { localStorage.setItem(OWNER_KEY, value); } catch (_) {}
+}
+
 /**
  * Called on every auth-state change (sign-in, sign-out). Decides whether
  * the current local IDB is safe to keep (matching owner stamp), needs to
@@ -274,26 +301,43 @@ const ANONYMOUS = 'anonymous';
  *
  * Must be called BEFORE migrateLocalToCloudIfNeeded() and pullCloudIntoLocal()
  * so purges happen first and downstream sync sees a clean slate.
+ *
+ * Returns `true` when the local store is safe for the caller to sync (migrate /
+ * pull), and `false` when a required purge could NOT be completed (e.g. another
+ * tab holds the DB open) — in which case the caller MUST skip sync, because
+ * proceeding would attribute the previous user's data to the new account.
  */
 export async function applyAccountIsolation(user) {
-  const stored = localStorage.getItem(OWNER_KEY);
+  // Any auth change resets the cloud-progress throttle clock, so the next
+  // account's first progress write isn't suppressed by the previous account's.
+  lastCloudProgressWriteAt = 0;
 
   if (!user) {
-    // Sign-out: purge and mark anonymous.
-    await purgeLocalIDB();
-    localStorage.setItem(OWNER_KEY, ANONYMOUS);
-    return;
+    // Sign-out: purge and mark anonymous (only if the purge actually happened).
+    const purged = await purgeLocalIDB();
+    if (purged) safeSetOwner(ANONYMOUS);
+    return purged;
   }
 
   const currentId = user.id;
+  const stored = safeGetOwner();
 
   // No stamp yet, anonymous stamp, or already this user → claim and continue.
   if (!stored || stored === ANONYMOUS || stored === currentId) {
-    localStorage.setItem(OWNER_KEY, currentId);
-    return;
+    safeSetOwner(currentId);
+    return true;
   }
 
-  // Mismatch: previously owned by a different user. Purge then claim.
-  await purgeLocalIDB();
-  localStorage.setItem(OWNER_KEY, currentId);
+  // Mismatch: previously owned by a different user. Purge BEFORE claiming.
+  const purged = await purgeLocalIDB();
+  if (!purged) {
+    // Could not delete the previous owner's data (another tab still has it
+    // open). Do NOT claim ownership or sync — that is the cross-account leak.
+    import('./toasts.js').then(({ toast }) =>
+      toast('Close other Fasty tabs, then reload, to switch accounts safely', { error: true, duration: 8000 })
+    ).catch(() => {});
+    return false;
+  }
+  safeSetOwner(currentId);
+  return true;
 }
