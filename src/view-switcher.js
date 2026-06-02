@@ -47,21 +47,22 @@ export async function setView(name) {
       mounted = null;
     }
   } else {
-    const factory = viewFactories[appRef.currentDoc.source];
-    if (!factory) { console.warn('No faithful view for', appRef.currentDoc.source); return; }
-    // EPUB/PDF page view needs the original file, but the cloud only syncs a
-    // doc's text (binary stays local-only). For a doc synced from another
-    // device there is no local file — fall back to word (RSVP) reading instead
-    // of crashing on a null binary. Word reading works from the synced text.
-    const needsBinary = appRef.currentDoc.source === 'epub' || appRef.currentDoc.source === 'pdf';
-    if (needsBinary && !appRef.currentDoc.binary) {
+    const src = appRef.currentDoc.source;
+    // EPUB/PDF page view needs the original file, but the cloud syncs a doc's
+    // text — not the file (binary is local-only). A doc synced from another
+    // device therefore has no binary; render it with the reformatted-text view
+    // (same paginate + click-to-read flow) instead of crashing on a null binary.
+    const needsBinary = src === 'epub' || src === 'pdf';
+    const textFallback = needsBinary && !appRef.currentDoc.binary;
+    const factory = textFallback ? viewFactories['txt'] : viewFactories[src];
+    if (!factory) { console.warn('No faithful view for', src); return; }
+    appRef.pause();
+    if (textFallback) {
       try {
         const { toast } = await import('./toasts.js');
-        toast('Synced from another device — reading in word view. Re-import the file here to see the original pages.', { duration: 6000 });
+        toast('Synced from another device — showing reformatted text. Re-import the file here for the original layout.', { duration: 5000 });
       } catch (_) {}
-      return; // stay in RSVP; currentView unchanged
     }
-    appRef.pause();
     const container = document.getElementById('faithful-container');
     container.innerHTML = '';
     container.hidden = false;
