@@ -12,7 +12,7 @@ import { initPasteSessions, saveSession as savePasteSession, onSessionOpened, se
 import * as cloud from './src/cloud.js';
 import { initAuthUI, lockAuthOpen, unlockAuthClosed } from './src/auth-ui.js';
 import { migrateLocalToCloudIfNeeded } from './src/migration.js';
-import { pullCloudIntoLocal } from './src/storage.js';
+import { pullCloudIntoLocal, applyAccountIsolation } from './src/storage.js';
 import { initTiers, onTierChange } from './src/tiers.js';
 import { maybeShowOnboarding } from './src/onboarding.js';
 import { initLeaderboard } from './src/leaderboard.js';
@@ -1377,6 +1377,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cloud.currentUser()) unlockAuthClosed();
         else lockAuthOpen();
         cloud.onAuthChange(async (user) => {
+            // Account isolation must run BEFORE migrate + pull so any purge
+            // happens before downstream sync writes new rows.
+            await applyAccountIsolation(user);
+
             if (user) {
                 unlockAuthClosed();
                 // First sign-in on this device pushes existing local data up.
@@ -1388,7 +1392,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 lockAuthOpen();
             }
-            // Refresh sidebar either way (sign-in adds rows, sign-out keeps local).
+            // Refresh sidebar either way (sign-in adds rows, sign-out resets local).
             refreshLibrary();
             refreshPasteSessions();
         });
