@@ -17,6 +17,14 @@ import { initTiers, onTierChange } from './src/tiers.js';
 import { maybeShowOnboarding } from './src/onboarding.js';
 import { initLeaderboard } from './src/leaderboard.js';
 import { initUpgradeUI } from './src/upgrade-ui.js';
+import { tokenize, titleUnit, isTitleUnit, titleText } from './src/text-clean.js';
+import { CURRENT_PARSER_VERSION } from './src/doc-model.js';
+
+// How long a chapter "title card" is held at the focal center before body words
+// resume (scaled mildly by title length, clamped to a comfortable beat).
+function titleCardMs(text) {
+    return Math.min(2600, Math.max(1100, (text || '').length * 55));
+}
 
 class FastyApp {
     constructor() {
@@ -122,10 +130,50 @@ class FastyApp {
         this.updateStatus('emptyPrompt');
     }
 
+    /**
+     * Re-extract a document whose stored text predates the current parser
+     * (better spacing + title handling), as long as its original file is still
+     * on this device. Identity, cover, and library metadata are preserved; only
+     * the extracted content is swapped in. Runs at most once per document (the
+     * fresh copy is saved with the current parserVersion). Cloud-synced docs
+     * with no local file keep their text — the read-time tokenizer still
+     * de-spaces them.
+     */
+    async _reprocessIfStale(doc, saveDocument) {
+        const canReparse = doc.binary && (doc.source === 'pdf' || doc.source === 'epub');
+        if (doc.parserVersion === CURRENT_PARSER_VERSION || !canReparse) return doc;
+        try {
+            const fileName = doc.origin?.fileName || `${doc.title || 'document'}.${doc.source}`;
+            const file = new File([doc.binary], fileName);
+            let reparsed;
+            if (doc.source === 'pdf') {
+                const { parsePdfFile } = await import('./src/parsers/pdf.js');
+                reparsed = await parsePdfFile(file);
+            } else {
+                const { parseEpubFile } = await import('./src/parsers/epub.js');
+                reparsed = await parseEpubFile(file);
+            }
+            const merged = {
+                ...doc,
+                chapters: reparsed.chapters,
+                wordToPage: reparsed.wordToPage,
+                totalPages: reparsed.totalPages,
+                totalWords: reparsed.totalWords,
+                parserVersion: reparsed.parserVersion ?? CURRENT_PARSER_VERSION,
+            };
+            await saveDocument(merged);
+            return merged;
+        } catch (e) {
+            console.warn('Re-parse skipped for', doc.id, e?.message || e);
+            return doc;
+        }
+    }
+
     async loadDocument(docId) {
-        const { getDocument, getProgress } = await import('./src/storage.js');
-        const doc = await getDocument(docId);
+        const { getDocument, getProgress, saveDocument } = await import('./src/storage.js');
+        let doc = await getDocument(docId);
         if (!doc) return;
+        doc = await this._reprocessIfStale(doc, saveDocument);
         this.currentDoc = doc;
         this._inSelectionMode = false;
         this._pageReadContinuation = null;
@@ -144,7 +192,7 @@ class FastyApp {
         this.paragraphs = doc.chapters.map((ch, index) => ({
             index,
             text: ch.text,
-            words: ch.text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean),
+            words: tokenize(ch.text),
             startWordIndex: ch.startWordIndex,
         }));
         this.words = this.paragraphs.flatMap(p => p.words);
@@ -220,11 +268,54 @@ class FastyApp {
             return;
         }
         // Restart RSVP with the next page's text; restore continuation afterwards.
+        // If this next page begins a chapter, surface its name as a title card.
         this._pageReadContinuation = null;
-        await this.startSelectionRead(nextText);
+        await this.startSelectionRead(nextText, { title: this._chapterTitleForPage(this._activeDocPage) });
         this._pageReadContinuation = cont;
     }
-    
+
+    // ==================== Chapter Titles ====================
+
+    /** A title worth flashing — skip the auto-generated generic ones. */
+    _isMeaningfulTitle(t) {
+        const s = String(t || '').replace(/\s+/g, ' ').trim();
+        if (!s) return false;
+        return !/^(Document|Article|Section\s+\d+)$/i.test(s);
+    }
+
+    /**
+     * The chapter title that *starts* on the given doc page, or null. Uses the
+     * doc's own page model (wordToPage), which matches both faithful views:
+     * faithful-pdf pages are real PDF pages, and faithful-text paginates by the
+     * same WORDS_PER_VIRTUAL_PAGE the virtual doc model uses.
+     */
+    _chapterTitleForPage(pageIndex) {
+        const doc = this.currentDoc;
+        if (!doc?.chapters || !doc.wordToPage || pageIndex == null) return null;
+        for (const ch of doc.chapters) {
+            const startPage = doc.wordToPage[ch.startWordIndex] || 0;
+            if (startPage === pageIndex && this._isMeaningfulTitle(ch.title)) {
+                return String(ch.title).replace(/\s+/g, ' ').trim();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * If the body tokens begin with the chapter title (a chapter page often
+     * repeats its heading at the top), drop that leading copy — it's shown as
+     * the card instead. Only strips an exact leading match, so body is safe.
+     */
+    _stripLeadingTitle(tokens, title) {
+        const tt = tokenize(title);
+        if (!tt.length || tokens.length < tt.length) return tokens;
+        const norm = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+        for (let i = 0; i < tt.length; i++) {
+            if (norm(tokens[i]) !== norm(tt[i])) return tokens;
+        }
+        return tokens.slice(tt.length);
+    }
+
     // ==================== Mobile Mode ====================
 
     /**
@@ -744,6 +835,7 @@ class FastyApp {
         this.elements.wordBefore.textContent = '';
         this.elements.wordFocus.textContent = '';
         this.elements.wordAfter.textContent = '';
+        this.elements.wordDisplay.classList.remove('title-card');
     }
     
     /**
@@ -751,12 +843,22 @@ class FastyApp {
      */
     scheduleNextWord() {
         if (!this.isPlaying) return;
-        
+
+        const currentWord = this.words[this.currentWordIndex];
+
+        // Chapter title card: hold it for a readable beat, then resume body.
+        if (isTitleUnit(currentWord)) {
+            this.intervalId = setTimeout(() => {
+                if (!this.isPlaying) return;
+                this.advanceWord();
+            }, titleCardMs(titleText(currentWord)));
+            return;
+        }
+
         // Calculate base interval based on WPM
         const baseInterval = 60000 / this.wpm;
-        
+
         // Check if current word ends a sentence
-        const currentWord = this.words[this.currentWordIndex];
         const needsSentencePause = this.sentencePause > 0 && this.isSentenceEnd(currentWord);
         
         if (needsSentencePause) {
@@ -816,14 +918,27 @@ class FastyApp {
         if (this.currentWordIndex >= this.words.length) {
             return;
         }
-        
+
         const word = this.words[this.currentWordIndex];
+
+        // Chapter title card: show the whole name centered on the focal point
+        // (no ORP split, no red focus letter). CSS .title-card handles centering.
+        if (isTitleUnit(word)) {
+            this.elements.wordBefore.textContent = '';
+            this.elements.wordFocus.textContent = titleText(word);
+            this.elements.wordAfter.textContent = '';
+            this.elements.wordDisplay.classList.add('title-card');
+            this.elements.wordDisplay.style.left = '';
+            return;
+        }
+
+        this.elements.wordDisplay.classList.remove('title-card');
         const parts = this.splitWordAtORP(word);
-        
+
         this.elements.wordBefore.textContent = parts.before;
         this.elements.wordFocus.textContent = parts.focus;
         this.elements.wordAfter.textContent = parts.after;
-        
+
         this.centerORPLetter();
     }
     
@@ -1165,9 +1280,10 @@ class FastyApp {
             this.play();
             return;
         }
-        // Clicked a different page (or no resume state) — start fresh.
+        // Clicked a different page (or no resume state) — start fresh. If this
+        // page begins a chapter, show its name as a title card first.
         this._fastyResume = null;
-        await this.startPageRead(text, getNextText);
+        await this.startPageRead(text, getNextText, { title: this._chapterTitleForPage(docPage) });
     }
 
     /** Toggle the "Back to page" button visibility. */
@@ -1293,9 +1409,9 @@ class FastyApp {
      * clicking the reader) calls `getNextText()` and starts RSVP on the result.
      * `getNextText` returns a string (next page) or null/undefined (no more pages).
      */
-    async startPageRead(text, getNextText) {
+    async startPageRead(text, getNextText, opts = {}) {
         this._pageReadContinuation = typeof getNextText === 'function' ? getNextText : null;
-        await this.startSelectionRead(text);
+        await this.startSelectionRead(text, opts);
     }
 
     /**
@@ -1317,11 +1433,21 @@ class FastyApp {
         return this._activeDocPage ?? 0;
     }
 
-    async startSelectionRead(text) {
+    async startSelectionRead(text, opts = {}) {
         if (!text || !text.trim()) return;
         this.pause();
         this._inSelectionMode = true;
-        this.words = text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+        let tokens = tokenize(text);
+        const title = this._isMeaningfulTitle(opts.title)
+            ? String(opts.title).replace(/\s+/g, ' ').trim()
+            : null;
+        if (title) {
+            // Drop a repeated leading heading, then flash the chapter name as a
+            // single title card so reading starts on the first real word.
+            tokens = this._stripLeadingTitle(tokens, title);
+            tokens = [titleUnit(title), ...tokens];
+        }
+        this.words = tokens;
         this.paragraphs = [{ index: 0, text, words: this.words, startWordIndex: 0 }];
         this.currentWordIndex = 0;
         this.currentParagraphIndex = 0;

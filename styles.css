@@ -423,6 +423,24 @@ body {
     color: var(--accent);
 }
 
+/* Chapter title card: a full chapter name flashed at the focal center (no ORP
+   split, no red focus letter). Centered and allowed to wrap for long titles. */
+.word-display.title-card {
+    left: 50%;
+    transform: translate(-50%, -50%);
+    justify-content: center;
+    white-space: normal;
+    text-align: center;
+    max-width: min(80vw, 22ch);
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+}
+
+.word-display.title-card .word-focus {
+    color: var(--text-muted);
+}
+
 /* Navigation arrows */
 .nav-arrow {
     position: absolute;

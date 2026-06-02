@@ -27,8 +27,7 @@ export async function parsePdfFile(file) {
   for (let p = 1; p <= numPages; p++) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    const text = content.items.map(it => it.str).join(' ');
-    pageTexts.push(text);
+    pageTexts.push(joinTextItems(content.items));
   }
 
   // Outline → chapters
@@ -69,6 +68,44 @@ export async function parsePdfFile(file) {
     pageTexts,
     outline,
   });
+}
+
+/**
+ * Join PDF.js text items into a string using their on-page geometry instead of
+ * a blind `.join(' ')`. The old blind join inserted a space between every item,
+ * which turned letter-spaced titles (one glyph per item) into "C H A P T E R".
+ * Here a space is added only on a real horizontal gap or a line break, so a
+ * tracked title stays "CHAPTER" and words split across items stay joined.
+ */
+function joinTextItems(items) {
+  let out = '';
+  let prevEndX = null, prevY = null, prevFontH = 0;
+  for (const it of items) {
+    if (it.str == null) continue;
+    const tr = it.transform || null;
+    const x = tr ? tr[4] : null;
+    const y = tr ? tr[5] : null;
+    const fontH = tr ? Math.hypot(tr[2], tr[3]) : prevFontH;
+    if (out && it.str) {
+      const sameLine = prevY != null && y != null
+        && Math.abs(y - prevY) <= Math.max(fontH, prevFontH) * 0.5;
+      if (!sameLine) {
+        if (!/\s$/.test(out)) out += ' ';
+      } else if (prevEndX != null && x != null) {
+        // Letter-spaced glyphs have small inter-glyph gaps and stay joined;
+        // genuine word gaps are wider. (Heavy tracking that still splits is
+        // caught by collapseLetterSpacing downstream.)
+        const gap = x - prevEndX;
+        if (gap > fontH * 0.3 && !/\s$/.test(out)) out += ' ';
+      }
+    }
+    out += it.str;
+    if (it.hasEOL && !/\s$/.test(out)) out += ' ';
+    if (x != null) prevEndX = x + (it.width || 0);
+    if (y != null) prevY = y;
+    prevFontH = fontH;
+  }
+  return out;
 }
 
 function flattenOutline(items, acc = []) {

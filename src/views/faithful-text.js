@@ -6,12 +6,15 @@
  * Select text → floating "▶ Read this" button → read just the selection.
  */
 import { WORDS_PER_VIRTUAL_PAGE } from '../doc-model.js';
+import { tokenize } from '../text-clean.js';
 import { watchSelection, hide as hideSelectionBtn } from '../selection-reader.js';
 
 export async function mount(container, doc, initialPage, { onPageChange }) {
-  // Concatenate full text once
+  // Concatenate full text once. Tokenize through the canonical cleaner so the
+  // displayed text is de-spaced ("C H A P T E R" -> "CHAPTER") and page
+  // boundaries line up with the doc model's wordToPage.
   const fullText = doc.chapters.map(c => c.text).join('\n\n');
-  const words = fullText.split(/\s+/).filter(Boolean);
+  const words = tokenize(fullText);
 
   const pages = [];
   for (let i = 0; i < words.length; i += WORDS_PER_VIRTUAL_PAGE) {

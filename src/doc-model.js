@@ -12,11 +12,21 @@
  *   }
  */
 
+import { tokenize } from './text-clean.js';
+
 export const WORDS_PER_VIRTUAL_PAGE = 300;
 
-/** Extract whitespace-separated words from a text blob. */
+// Bumped when the extraction/tokenization logic changes. Documents stored with
+// an older version are transparently re-parsed on open (see app.loadDocument)
+// when their original file is still on the device.
+export const CURRENT_PARSER_VERSION = 2;
+
+/**
+ * Extract words from a text blob for reading. Goes through the canonical
+ * tokenizer so letter-spaced titles ("C H A P T E R") are rejoined everywhere.
+ */
 export function extractWords(text) {
-  return text.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+  return tokenize(text);
 }
 
 /**
@@ -44,6 +54,7 @@ export function buildVirtualPagedDocument({ id, title, source, origin, binary, c
     wordToPage,
     totalPages,
     totalWords,
+    parserVersion: CURRENT_PARSER_VERSION,
     importedAt: Date.now(),
     lastReadAt: Date.now(),
   };
@@ -86,6 +97,7 @@ export function buildPdfDocument({ id, title, origin, binary, cover, pageTexts, 
     wordToPage,
     totalPages: pageTexts.length,
     totalWords,
+    parserVersion: CURRENT_PARSER_VERSION,
     importedAt: Date.now(),
     lastReadAt: Date.now(),
   };
