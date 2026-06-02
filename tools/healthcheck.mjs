@@ -216,10 +216,13 @@ function buildExports(file) {
       names.add((seg[1] || seg[0]).trim());
     }
   }
+  // `export * as ns from './x'` re-exports a namespace under `ns`.
+  for (const m of clean.matchAll(/export\s*\*\s*as\s+([A-Za-z_$][\w$]*)\s+from/g)) names.add(m[1]);
   const out = {
     names,
     hasDefault: /export\s+default\b/.test(clean),
-    hasStar: /export\s*\*\s*from/.test(clean),
+    // matches both `export * from` and `export * as ns from`
+    hasStar: /export\s*\*\s*(?:as\s+[A-Za-z_$][\w$]*\s+)?from/.test(clean),
   };
   exportCache.set(file, out);
   return out;
