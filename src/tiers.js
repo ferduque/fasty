@@ -44,15 +44,23 @@ async function loadAndFire(user) {
     cachedTier = 'free';
     cachedCaps = CAPS.free;
   } else {
-    try {
-      const profile = await getProfile();
-      cachedTier = profile?.tier || 'free';
-      cachedCaps = CAPS[cachedTier] || CAPS.free;
-    } catch (err) {
-      console.warn('tiers: failed to load profile', err);
-      cachedTier = 'free';
-      cachedCaps = CAPS.free;
+    let loaded = false;
+    for (let attempt = 0; attempt < 3 && !loaded; attempt++) {
+      try {
+        const profile = await getProfile();
+        cachedTier = profile?.tier || 'free';
+        cachedCaps = CAPS[cachedTier] || CAPS.free;
+        loaded = true;
+      } catch (err) {
+        console.warn(`tiers: profile load attempt ${attempt + 1} failed`, err);
+        if (attempt < 2) await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+      }
     }
+    // If we still couldn't confirm the tier, do NOT silently downgrade a
+    // possibly-Pro user to free (that blocks paid features and silently drops
+    // their cloud writes). Keep the last known tier — it defaults to free only
+    // on a true cold start, never overwriting a previously confirmed 'pro'.
+    if (!loaded) console.warn(`tiers: keeping tier="${cachedTier}" after repeated load failures`);
   }
   listeners.forEach(fn => { try { fn(cachedTier, cachedCaps); } catch (e) { console.error(e); } });
 }

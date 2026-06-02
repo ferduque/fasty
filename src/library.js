@@ -20,7 +20,13 @@ export function initLibrary() {
 export async function refresh() {
   if (!list) return;
   const docs = await listDocuments();
-  Array.from(list.querySelectorAll('.lib-item')).forEach(n => n.remove());
+  Array.from(list.querySelectorAll('.lib-item')).forEach(n => {
+    // Revoke the cover's object URL before discarding the row, else the Blob
+    // leaks for the page's lifetime (refresh runs on every auth/tier change).
+    const img = n.querySelector('img.lib-cover');
+    if (img && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    n.remove();
+  });
   if (docs.length === 0) {
     if (emptyState) emptyState.hidden = false;
   } else {
