@@ -140,12 +140,16 @@ export async function pullCloudIntoLocal() {
       // *inside* the tx silently closes it and drops every put (this used to
       // make a Pro user's new-device sync pull zero documents, with no error).
       const prepared = await Promise.all(docs.map(async (d) => {
-        // For cloud-only docs we have no cover Blob locally yet — resolve a
-        // signed URL and lazy-fetch to a Blob so the library list still shows
-        // a thumbnail. If the fetch fails we leave cover=null (library card
-        // falls back to the colored placeholder).
-        let coverBlob = null;
-        if (d.cloudCoverPath) {
+        // Preserve anything that only lives locally — above all `binary` (the
+        // original EPUB/PDF file, which the cloud never stores). Without this,
+        // pulling would overwrite a locally-imported doc with a binary-less
+        // copy and break its faithful page view.
+        const existing = await getDocument(d.id).catch(() => null);
+        // Reuse the local cover if we already have one; otherwise, for cloud-only
+        // docs, resolve a signed URL and lazy-fetch the thumbnail (fall back to
+        // null → the library card shows the colored placeholder).
+        let coverBlob = existing && existing.cover instanceof Blob ? existing.cover : null;
+        if (!coverBlob && d.cloudCoverPath) {
           try {
             const url = await cloud.signedCoverUrl(d.cloudCoverPath);
             if (url) {
@@ -155,7 +159,9 @@ export async function pullCloudIntoLocal() {
           } catch (_) {}
         }
         const progress = await cloud.cloudGetProgress(d.id).catch(() => null);
-        return { doc: { ...d, cover: coverBlob }, progress };
+        // Cloud metadata overlays the local record, but binary stays local-only.
+        const doc = { ...(existing || {}), ...d, binary: existing ? existing.binary ?? null : null, cover: coverBlob };
+        return { doc, progress };
       }));
 
       const t = await tx(['documents', 'progress'], 'readwrite');

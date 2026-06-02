@@ -49,6 +49,18 @@ export async function setView(name) {
   } else {
     const factory = viewFactories[appRef.currentDoc.source];
     if (!factory) { console.warn('No faithful view for', appRef.currentDoc.source); return; }
+    // EPUB/PDF page view needs the original file, but the cloud only syncs a
+    // doc's text (binary stays local-only). For a doc synced from another
+    // device there is no local file — fall back to word (RSVP) reading instead
+    // of crashing on a null binary. Word reading works from the synced text.
+    const needsBinary = appRef.currentDoc.source === 'epub' || appRef.currentDoc.source === 'pdf';
+    if (needsBinary && !appRef.currentDoc.binary) {
+      try {
+        const { toast } = await import('./toasts.js');
+        toast('Synced from another device — reading in word view. Re-import the file here to see the original pages.', { duration: 6000 });
+      } catch (_) {}
+      return; // stay in RSVP; currentView unchanged
+    }
     appRef.pause();
     const container = document.getElementById('faithful-container');
     container.innerHTML = '';
