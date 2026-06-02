@@ -1082,6 +1082,17 @@ body.auth-required .modal-backdrop {
     z-index: 2;
 }
 
+/* The document topbar (Back to page / ✕) must sit ABOVE the full-bleed RSVP
+   container on mobile — otherwise its buttons render but taps land on the
+   reader overlay underneath and just resume reading. Desktop already does
+   this; mobile was missing it. Kept interactive (not faded) so Back to page
+   is reachable even mid-read. */
+.app-container.is-mobile .reader-topbar {
+    position: relative;
+    z-index: 2;
+    background: var(--bg-primary);
+}
+
 /* During active reading, chrome fades to nothing so the word stands alone.
    Tapping the (transparent) chrome area still pauses reading via the
    reader-panel click handler — touch events pass through opacity:0
