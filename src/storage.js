@@ -54,6 +54,36 @@ function openDB() {
   return dbPromise;
 }
 
+/**
+ * Delete the entire local IndexedDB. Used on sign-out and on detecting an
+ * owner-mismatch at sign-in. Closes any open connection first so the
+ * deleteDatabase request isn't blocked. Also clears per-user migration
+ * flags so a subsequent sign-in re-runs migration cleanly.
+ */
+async function purgeLocalIDB() {
+  if (dbPromise) {
+    try {
+      const db = await dbPromise;
+      db.close();
+    } catch (_) {}
+    dbPromise = null;
+  }
+  await new Promise((resolve) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => resolve(); // best-effort, don't throw on the auth flow
+    req.onblocked = () => resolve(); // another tab still has the DB open
+  });
+  // Wipe per-user migration flags. A new sign-in will set its own flag
+  // after running migrate cleanly.
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('fasty.migratedAt.')) {
+      localStorage.removeItem(key);
+    }
+  }
+}
+
 function tx(storeNames, mode = 'readonly') {
   return openDB().then(db => db.transaction(storeNames, mode));
 }
@@ -227,4 +257,43 @@ export function deriveSessionTitle(text) {
   if (!trimmed) return 'Empty paste';
   const words = trimmed.split(' ').slice(0, 7).join(' ');
   return words.length > 50 ? words.slice(0, 47) + '…' : words;
+}
+
+// ==================== Account isolation ====================
+// Ensures the local IndexedDB belongs to exactly one user at a time.
+// See docs/superpowers/specs/2026-06-02-account-data-isolation-design.md
+
+const OWNER_KEY = 'fasty.localOwner';
+const ANONYMOUS = 'anonymous';
+
+/**
+ * Called on every auth-state change (sign-in, sign-out). Decides whether
+ * the current local IDB is safe to keep (matching owner stamp), needs to
+ * claim ownership (anonymous or empty stamp), or needs to be purged
+ * (mismatch — a different user previously owned this device's data).
+ *
+ * Must be called BEFORE migrateLocalToCloudIfNeeded() and pullCloudIntoLocal()
+ * so purges happen first and downstream sync sees a clean slate.
+ */
+export async function applyAccountIsolation(user) {
+  const stored = localStorage.getItem(OWNER_KEY);
+
+  if (!user) {
+    // Sign-out: purge and mark anonymous.
+    await purgeLocalIDB();
+    localStorage.setItem(OWNER_KEY, ANONYMOUS);
+    return;
+  }
+
+  const currentId = user.id;
+
+  // No stamp yet, anonymous stamp, or already this user → claim and continue.
+  if (!stored || stored === ANONYMOUS || stored === currentId) {
+    localStorage.setItem(OWNER_KEY, currentId);
+    return;
+  }
+
+  // Mismatch: previously owned by a different user. Purge then claim.
+  await purgeLocalIDB();
+  localStorage.setItem(OWNER_KEY, currentId);
 }
