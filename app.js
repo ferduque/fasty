@@ -83,12 +83,16 @@ class FastyApp {
         document.addEventListener('keydown', (e) => this.onGlobalKeydown(e));
         
         // Click on reader panel to start/pause (alternative to Space).
-        // Excludes nav arrows, the top bar (and its form controls), the theme
-        // toggle, the faithful container, and the floating selection button,
-        // so clicking those doesn't accidentally trigger play/pause.
+        // Excludes interactive chrome so tapping it does its own job instead of
+        // starting playback: nav arrows, the doc top bar, the theme toggle, the
+        // faithful container, the floating selection button, AND the mobile
+        // chrome — the paste/edit box, the mobile top bar (drawer + theme), and
+        // the mobile settings row. During active reading this chrome is faded
+        // with pointer-events:none, so taps pass through to the reading surface
+        // and tap-to-pause still works anywhere on screen.
         const readerPanel = document.querySelector('.reader-panel');
         readerPanel.addEventListener('click', (e) => {
-            if (e.target.closest('.nav-arrow, .reader-topbar, .theme-toggle, .faithful-container, .selection-read-btn')) return;
+            if (e.target.closest('.nav-arrow, .reader-topbar, .theme-toggle, .faithful-container, .selection-read-btn, .paste-input, .mobile-topbar, .mobile-settings-row')) return;
             this.handleReaderClick();
         });
         
