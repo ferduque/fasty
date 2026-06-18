@@ -893,10 +893,19 @@ class FastyApp {
         const paragraphEndIndex = currentParagraph.startWordIndex + currentParagraph.words.length;
         
         if (this.currentWordIndex >= paragraphEndIndex) {
+            const hasMoreParagraphs = this.currentParagraphIndex < this.paragraphs.length - 1;
+
+            // On mobile, don't stop at paragraph ends — flow into the next
+            // paragraph after a short blank beat so the reader keeps its focus
+            // on the screen and never has to tap mid-document.
+            if (hasMoreParagraphs && this.isMobile && this.isPlaying) {
+                this.autoAdvanceParagraph();
+                return;
+            }
+
             this.pause();
-            
-            // Check if there are more paragraphs
-            if (this.currentParagraphIndex < this.paragraphs.length - 1) {
+
+            if (hasMoreParagraphs) {
                 this.showParagraphBreak();
             } else {
                 // End of text
@@ -971,6 +980,28 @@ class FastyApp {
     
     showParagraphBreak() {
         this.updateStatus('paragraphBreak', true);
+    }
+
+    /**
+     * Mobile only: flow straight into the next paragraph instead of stopping
+     * and waiting for a tap. Stays in the reading state (chrome faded), blanks
+     * the word for a short paragraph "breath", then resumes the loop. When the
+     * Pause setting is Off the beat is 0, so paragraphs read as one continuous
+     * stream. isPlaying never goes false, so a tap during the beat still pauses.
+     */
+    autoAdvanceParagraph() {
+        this.clearWordDisplay();
+        const beat = this.sentencePause > 0 ? Math.max(this.sentencePause * 2, 400) : 0;
+        this.sentencePauseTimeoutId = setTimeout(() => {
+            if (!this.isPlaying) return;
+            this.currentParagraphIndex++;
+            this.currentWordIndex = this.paragraphs[this.currentParagraphIndex].startWordIndex;
+            this.displayCurrentWord();
+            this.updateWordCounter();
+            this.updateProgressBar();
+            this.syncTopbarPage();
+            this.scheduleNextWord();
+        }, beat);
     }
     
     showEndOfText() {

@@ -88,9 +88,20 @@ This keeps CSS and the JS reparenting logic in lockstep.
   the residual space after chrome.
 - **"Tap here!" / "Next page" hint:** `#mobile-tap-hint` element. Shows only
   in two states: (a) initial — text loaded but never started, (b) end of a
-  document page (pageBreak status). Hidden at paragraph breaks (small status
-  text below RSVP handles those) and during active reading. Logic is in
-  `updateMobileTapHint()`, called from every state transition.
+  document page (pageBreak status). Hidden at paragraph breaks and during
+  active reading. Logic is in `updateMobileTapHint()`, called from every
+  state transition.
+- **Paragraph auto-advance (mobile):** mid-document paragraph breaks do NOT
+  stop on mobile. In `advanceWord()`, when the word index passes a paragraph
+  end and more paragraphs remain, mobile calls `autoAdvanceParagraph()` instead
+  of `pause()` + `showParagraphBreak()`: it stays in the `.reading` state
+  (chrome stays faded), blanks the word for a short beat
+  (`sentencePause > 0 ? max(sentencePause*2, 400) : 0` ms), then advances into
+  the next paragraph and resumes the loop — no tap required. `isPlaying` never
+  goes false, so a tap during the beat still pauses normally. Desktop is
+  unchanged: it stops at paragraph ends and shows "End of paragraph · Press
+  Space". Page-break / end-of-text still stop on both (they need the
+  "Next page" / "Done" UI, and page breaks must load the next page).
 - **iOS viewport lockdown:** `.app-container.is-mobile` is `position: fixed;
   inset: 0; touch-action: manipulation` so the page truly can't scroll or
   zoom. Viewport meta needs `maximum-scale=1, user-scalable=no,
