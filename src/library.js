@@ -5,6 +5,7 @@
 import { listDocuments, deleteDocument } from './storage.js';
 import { toast } from './toasts.js';
 import { getCaps } from './tiers.js';
+import { signedCoverUrl } from './cloud.js';
 
 const onDocumentSelected = [];
 export function onLibraryDocumentSelected(fn) { onDocumentSelected.push(fn); }
@@ -52,23 +53,65 @@ export function setActive(docId) {
   });
 }
 
+function makeCoverPlaceholder() {
+  const ph = document.createElement('div');
+  ph.className = 'lib-cover';
+  return ph;
+}
+
+/**
+ * Attach a cover <img> (or placeholder) to a library row.
+ *
+ * Covers render fine on desktop from the local IndexedDB Blob, but on iOS
+ * WebKit a Blob round-tripped through IndexedDB can come back with a dead
+ * backing store — `createObjectURL` then yields a URL that won't decode and the
+ * browser shows its broken-image icon. So we degrade in order: local Blob →
+ * fresh cloud fetch (bypasses the bad IDB Blob) → clean placeholder. Desktop is
+ * unaffected because the Blob loads on the first try and the fallbacks never run.
+ */
+function attachCover(row, d) {
+  if (!(d.cover instanceof Blob) && !d.cloudCoverPath) {
+    row.appendChild(makeCoverPlaceholder());
+    return;
+  }
+
+  const img = document.createElement('img');
+  img.className = 'lib-cover';
+  img.alt = '';
+  img.decoding = 'async';
+  let usedCloud = false;
+
+  const fallback = async () => {
+    if (img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+    if (!usedCloud && d.cloudCoverPath) {
+      usedCloud = true;
+      const url = await signedCoverUrl(d.cloudCoverPath).catch(() => null);
+      if (url) { img.src = url; return; }
+    }
+    img.replaceWith(makeCoverPlaceholder());
+  };
+  img.onerror = fallback;
+
+  if (d.cover instanceof Blob) {
+    img.src = URL.createObjectURL(d.cover);
+  } else {
+    // No local blob (e.g. cover fetch failed during sync) — go straight to cloud.
+    usedCloud = true;
+    signedCoverUrl(d.cloudCoverPath)
+      .then(url => { if (url) img.src = url; else img.replaceWith(makeCoverPlaceholder()); })
+      .catch(() => img.replaceWith(makeCoverPlaceholder()));
+  }
+
+  row.appendChild(img);
+}
+
 function renderItem(d) {
   const row = document.createElement('div');
   row.className = 'lib-item';
   row.dataset.id = d.id;
   row.title = d.title;
 
-  if (d.cover) {
-    const img = document.createElement('img');
-    img.className = 'lib-cover';
-    img.src = URL.createObjectURL(d.cover);
-    img.alt = '';
-    row.appendChild(img);
-  } else {
-    const placeholder = document.createElement('div');
-    placeholder.className = 'lib-cover';
-    row.appendChild(placeholder);
-  }
+  attachCover(row, d);
 
   const meta = document.createElement('div');
   meta.className = 'lib-meta';

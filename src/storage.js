@@ -203,6 +203,7 @@ export async function listDocuments() {
       title: d.title,
       source: d.source,
       cover: d.cover,
+      cloudCoverPath: d.cloudCoverPath || null,
       totalWords: d.totalWords,
       lastReadAt: lastTouched,
       progressPercent: p
