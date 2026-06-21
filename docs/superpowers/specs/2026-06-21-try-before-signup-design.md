@@ -51,6 +51,20 @@ invites them to create a free account once they've felt the value.
    present; "Sign in" is a small corner control.
 4. **Tutorial language = auto-detect.** Spanish-language browsers get the Spanish
    tutorial; everyone else gets English.
+5. **Tutorial pacing = tutorial-only checkpoints.** The tutorial has its own
+   gentle stop points (decoupled from normal reading): at each speed step it
+   pauses and shows "change your speed, then continue." Normal documents are
+   unaffected. Works identically on phone and desktop.
+
+## Dependency / repo state note
+
+An in-flight change (uncommitted in the working tree as of 2026-06-21; CLAUDE.md
+edit calls the old desktop-stop behavior "a bug") makes the reader **flow through
+paragraph breaks on both platforms** — i.e. desktop no longer stops at paragraph
+ends. The tutorial mechanic below is **deliberately independent of paragraph-break
+behavior** (it uses its own checkpoint state), so it works whether or not that
+change lands. The implementation plan must reconcile against whatever state lands
+on `main`.
 
 ## User experience
 
@@ -73,24 +87,31 @@ Land on getfasty.com (logged out)
 
 ### The tutorial as onboarding
 
-The sample text **is** the tutorial. It flows via RSVP at whatever speed is set,
-starting at 250 WPM, and instructs the reader to raise their own speed.
+The sample text **is** the tutorial. It is delivered as **three segments** and
+plays via RSVP, starting at 250 WPM, instructing the reader to raise their own
+speed between segments.
 
-**Paragraph breaks are the "change your speed now" checkpoints.** Fasty already
-*stops and waits* at paragraph breaks on desktop (resume with Space) and
-auto-advances after a beat on mobile. We exploit this: each paragraph ends right
-after a "now change your speed" instruction, so:
+**Tutorial-only checkpoints.** The tutorial is loaded as a special read flagged
+`isTutorial = true`. At the end of each non-final segment the reader enters a
+**tutorial-checkpoint state**: it `pause()`s and shows a localized,
+device-aware prompt — e.g. "Cambia la velocidad y toca para continuar" (mobile) /
+"Change your speed, then press Space to continue" (desktop). The user's normal
+start/resume input (tap on mobile; click or Space on desktop) advances to the
+next segment and resumes at whatever WPM is currently selected. The final segment
+ends in the normal end-of-text "Done" state, which triggers the post-read signup
+card.
 
-- **Desktop:** reader pauses at the paragraph break → user changes the speed
-  dropdown → presses Space → remaining words flow at the new speed. A real
-  "I'll wait" moment, using existing behavior.
-- **Mobile:** flows through the paragraph break after a beat; speed changes apply
-  live whenever the user makes them ([app.js:523](../../../app.js) `onWpmChange`
-  re-schedules at the new WPM mid-read).
+This mechanic **does not depend on paragraph-break behavior** — the checkpoint
+stop is explicit and tutorial-scoped, so normal documents keep flowing
+uninterrupted and the tutorial works the same on phone and desktop (today, mobile
+flows past paragraph breaks, so this is the only way to get a real checkpoint on
+mobile).
 
-Changing WPM mid-read is already live: `onWpmChange()` pauses and replays at the
-new timing from the current word, and `scheduleNextWord()` reads `this.wpm` fresh
-each word (`baseInterval = 60000 / this.wpm`).
+Changing WPM mid-read / between segments already works: `onWpmChange()`
+([app.js:523](../../../app.js)) pauses and replays at the new timing from the
+current word; while paused at a checkpoint, changing the dropdown sets `this.wpm`
+and the next segment resumes at that speed. `scheduleNextWord()` reads `this.wpm`
+fresh each word (`baseInterval = 60000 / this.wpm`).
 
 ### Device-aware control reference
 
@@ -143,8 +164,10 @@ the copy resolves per device, reusing the existing desktop/mobile copy pattern:
 > and compete on the leaderboard? Create a free account. For now, enjoy your new
 > superpower. Happy reading!
 
-Paragraphs are separated by blank lines so Fasty's paragraph detection
-(newline = new paragraph) creates the checkpoint breaks.
+The three labelled paragraphs map to the **three tutorial segments**. The
+checkpoint stop happens at the end of segment 1 (after "change it to 350") and
+segment 2 (after "try 450") — driven by the `isTutorial` checkpoint state, not by
+paragraph detection. Segment 3 ends in the normal "Done" state.
 
 ## Components & changes
 
@@ -168,22 +191,40 @@ page load / sign-out.
 
 ### 2. Tutorial sample module — new `src/tutorial-sample.js`
 
-- Exports the localized tutorial text (the copy above), assembled with the
-  device-aware `{location}` token resolved at call time.
+- Exports the localized tutorial copy (the copy above) as an **ordered array of
+  three segments**, with the device-aware `{location}` token resolved at call time.
 - `pickLanguage()` — returns `'es'` if `navigator.language`/`navigator.languages`
   starts with `es`, else `'en'`.
-- `getTutorialText()` — returns the assembled multi-paragraph string for the
-  current language + device.
+- `getTutorialSegments()` — returns the three segment strings for the current
+  language + device.
+- Localized checkpoint prompts (e.g. ES `Cambia la velocidad y {toca/pulsa Espacio}
+  para continuar`, EN `Change your speed, then {tap/press Space} to continue`),
+  device-aware, plus the localized post-read card copy.
 - `TUTORIAL_WPM = 250` constant.
 
 ### 3. Pre-load tutorial on landing + "Try a sample" — `app.js`
 
 - On startup, when no document is loaded and the user is anonymous, load the
-  tutorial text into the reader (paused), set the WPM select to 250, and show the
-  existing "Tap to start" hint. First tap starts the tutorial.
+  tutorial (segment 1) into the reader (paused), flag `this.isTutorial = true`,
+  set the WPM select to 250, and show the existing "Tap to start" hint. First tap
+  starts the tutorial.
 - The existing paste box stays usable; a small "Try a sample / Probar ejemplo"
   control re-loads the tutorial on demand.
 - Loading the tutorial sets `wpmSelect.value = 250` and syncs `this.wpm`.
+
+### 3b. Tutorial checkpoint state machine — `app.js`
+
+- Track `this.isTutorial` and the current segment index.
+- At end-of-text within a tutorial segment that is **not** the last segment,
+  instead of finishing, enter the **checkpoint state**: `pause()`, set a status
+  key that renders the localized checkpoint prompt (reuse `updateStatus()` /
+  the mobile tap-hint path), and wait.
+- The existing start/resume input handlers (tap on mobile; click or `Space` on
+  desktop) detect the checkpoint state and, instead of resuming the same segment,
+  load the next segment and `play()` at the currently-selected WPM.
+- After the **last** segment ends, fall through to the normal "Done" end-of-text
+  state (which triggers the post-read card, Component 6).
+- This path is fully gated on `this.isTutorial`, so normal reads are untouched.
 
 ### 4. Soft signup prompt — `src/auth-ui.js`
 
@@ -218,11 +259,23 @@ The Upgrade/Pro path already requires sign-in (toast today) — repoint it to
 
 ### 7. Anonymous reads are ephemeral
 
-Anonymous paste/sample reads are **not** written to the persistent library or
-paste-sessions store. Saving is an account-only feature (decision 1). This keeps
-behavior consistent with the locked-feature model and gives a concrete reason to
-sign up ("save this"). Verify the paste/read path does not auto-persist when
-`!currentUser()`; gate any local library writes on a signed-in user.
+Anonymous paste/sample reads must **not** be written to the persistent library or
+paste-sessions store. Saving is an account-only feature (decision 1).
+
+**This is an active change, not just a check.** Today `startReading()`
+(~[app.js:695](../../../app.js)) calls `savePasteSession()` for *every* read,
+anonymous included; the cloud write no-ops for anonymous users but the **local
+IndexedDB save still runs** — so the tutorial sample would itself be saved as a
+paste session. Required change: persist a paste session only when **`currentUser()`
+is present AND the read is not the tutorial** (`!this.isTutorial`). So:
+
+- Anonymous read → never persisted (local or cloud).
+- Tutorial sample → never persisted, even if a signed-in user views it.
+- Signed-in user's own pasted text → persists as today.
+
+This also means there is no anonymous local data to migrate on signup, which is
+consistent with the "saving needs an account" decision (the post-read card's
+"save this" is the upgrade hook).
 
 ### 8. Cache-buster + healthcheck
 
@@ -247,9 +300,12 @@ sign up ("save this"). Verify the paste/read path does not auto-persist when
   loads as today. (Optionally still offer "Try a sample" — harmless.)
 - **WPM dropdown clamping:** free cap is 450; the tutorial only references 250/
   350/450, all within free caps, so no clamping surprises.
-- **Mobile paragraph auto-advance:** tutorial still reads coherently if the user
-  never changes speed (it just stays at 250). The instructions are invitations,
-  not blockers.
+- **User ignores the checkpoint instruction:** if they don't change speed at a
+  checkpoint, resuming just continues at 250 — coherent, no breakage. The speed
+  change is an invitation; the tap-to-continue is the only required action.
+- **Checkpoint state vs pause:** the checkpoint reuses `pause()`, so a stray
+  tap/Space resumes correctly; `isTutorial` + segment index disambiguate
+  "resume same segment" from "advance to next segment."
 - **Browser with `es-419`, `es-MX`, etc.:** any `es*` → Spanish.
 - **No JS / cloud not configured:** `isConfigured()` false → app already runs in
   anonymous-only mode; tutorial still works, auth chip shows the setup hint.
@@ -260,9 +316,13 @@ Logged out, hard-reload getfasty.com:
 
 1. No forced modal. Reader pre-loaded with tutorial, "Tap to start" visible.
 2. Tap → tutorial plays at 250 WPM.
-3. Desktop: at paragraph break it stops; change dropdown to 350; Space → flows
-   faster. Repeat for 450.
-4. Mobile: flows through; changing speed mid-read speeds up immediately.
+3. Tutorial reaches the segment-1 checkpoint and **stops** showing the localized
+   "change your speed, then continue" prompt — on BOTH desktop and mobile.
+   Change dropdown to 350; resume (Space/click on desktop, tap on mobile) → next
+   segment flows at 350. Repeat at the segment-2 checkpoint for 450.
+4. Final segment ends in the "Done" state (not a checkpoint). Normal pasted
+   documents still flow through paragraph breaks uninterrupted (no tutorial
+   checkpoints leak into them).
 5. Spanish browser → Spanish copy; English browser → English copy; `{location}`
    correct per device.
 6. Paste own text → reads fine, unlimited, capped at 450 WPM.
@@ -277,6 +337,7 @@ Logged out, hard-reload getfasty.com:
 - Removing the wall could reduce *signups-per-visit* on paper while increasing
   *total engaged users* — without analytics we can't measure the trade. Strongly
   pair this with a visitor-analytics tag (separate task) to read the result.
-- Tutorial pacing on mobile (no stop at paragraph breaks) is less guided; mitigated
-  by short paragraphs and live speed changes.
+- Tutorial-only checkpoints add a small amount of read-loop state (`isTutorial`,
+  segment index). Kept fully gated so normal reads are untouched; covered by the
+  test plan.
 ```
