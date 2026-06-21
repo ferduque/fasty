@@ -226,6 +226,24 @@ page load / sign-out.
   state (which triggers the post-read card, Component 6).
 - This path is fully gated on `this.isTutorial`, so normal reads are untouched.
 
+**Implementation notes (from spec review):**
+
+- The resume/start input logic is **duplicated** in `handleReaderClick()`
+  (~[app.js:234](../../../app.js)) and the `Space` branch of `onGlobalKeydown()`
+  (~[app.js:1090](../../../app.js)), both routing to `continueAfterParagraph()`.
+  Add the checkpoint-intercept to **both**, or factor them into one helper first
+  (preferred).
+- **Each tutorial segment is loaded as its own separate single-paragraph read**
+  (its own `parseText`/load). At a checkpoint the segment is fully consumed
+  (`currentWordIndex >= words.length`), so the checkpoint status must override the
+  default `pause()` → `updateStatus('paused')` (`pause()` sets the "paused" copy at
+  ~app.js:822; the checkpoint branch sets the checkpoint prompt instead).
+- The localized checkpoint prompt is passed to `updateStatus()` as a
+  **pre-resolved literal string** (not a COPY key), since it's dynamic per
+  language/device. Consequence: `_currentStatusKey` is null, so the prompt won't
+  auto-re-render on a resize *while paused at a checkpoint* — an acceptable edge;
+  add resize-safety only if desired.
+
 ### 4. Soft signup prompt — `src/auth-ui.js`
 
 - Add `export function promptSignIn(reason)` that opens the **optional** (closable)
