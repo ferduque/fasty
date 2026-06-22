@@ -679,6 +679,7 @@ class FastyApp {
     // ==================== Reading Control ====================
     
     startReading() {
+        this.hideAnonSignupCard();
         const text = this.elements.textInput.value;
 
         if (!text.trim()) {
@@ -1032,6 +1033,7 @@ class FastyApp {
             this.updateStatus('pageBreak', true);
         } else {
             this.updateStatus('done', true);
+            if (!cloud.currentUser()) this.maybeShowAnonSignupCard();
         }
     }
     
@@ -1628,6 +1630,22 @@ class FastyApp {
         this.hideAnonSignupCard();
     }
 
+    /** Soft post-read signup card. Once per browser session; anonymous only. */
+    maybeShowAnonSignupCard() {
+        try { if (sessionStorage.getItem('fasty_anon_card_dismissed')) return; } catch (_) {}
+        const card = document.getElementById('anon-signup-card');
+        if (!card) return;
+        const lang = pickLanguage();
+        import('./src/tutorial-sample.js').then(({ getAnonCardCopy }) => {
+            const c = getAnonCardCopy({ lang });
+            document.getElementById('anon-card-title').textContent = c.title;
+            document.getElementById('anon-card-body').textContent = c.body;
+            document.getElementById('anon-card-cta').textContent = c.cta;
+            document.getElementById('anon-card-dismiss').textContent = c.dismiss;
+            card.hidden = false;
+        });
+    }
+
     /** No-op placeholder until Task 5 adds the real card; safe to call now. */
     hideAnonSignupCard() {
         const card = document.getElementById('anon-signup-card');
@@ -1657,8 +1675,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cloud.init().then(async () => {
         await initAuthUI();
         // Apply the initial gate state based on the session loaded by cloud.init().
-        if (cloud.currentUser()) unlockAuthClosed();
-        else lockAuthOpen();
+        unlockAuthClosed();                 // never wall the landing page
+        if (!cloud.currentUser()) window.fastyApp.maybeStartTutorial();
         cloud.onAuthChange(async (user) => {
             try {
                 // Account isolation must run BEFORE migrate + pull so any purge
@@ -1681,7 +1699,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 // Always reconcile the gate + sidebar, even if something above
                 // threw, so the auth modal can never get stuck open/closed.
-                if (user) unlockAuthClosed(); else lockAuthOpen();
+                unlockAuthClosed();          // sign-out returns to anonymous reading, no wall
                 refreshLibrary();
                 refreshPasteSessions();
             }
@@ -1706,6 +1724,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // "+ New paste" → enter paste mode (close any open doc).
     document.getElementById('new-paste').addEventListener('click', () => {
         window.fastyApp.enterPasteMode();
+    });
+
+    const trySampleBtn = document.getElementById('try-sample');
+    if (trySampleBtn) {
+        trySampleBtn.hidden = false;
+        trySampleBtn.addEventListener('click', () => window.fastyApp.startTutorial());
+    }
+
+    const anonCta = document.getElementById('anon-card-cta');
+    const anonDismiss = document.getElementById('anon-card-dismiss');
+    if (anonCta) anonCta.addEventListener('click', async () => {
+        window.fastyApp.hideAnonSignupCard();
+        const { promptSignIn } = await import('./src/auth-ui.js');
+        promptSignIn(pickLanguage() === 'es'
+            ? 'Crea una cuenta gratis para guardar tu biblioteca y competir.'
+            : 'Create a free account to save your library and compete.');
+    });
+    if (anonDismiss) anonDismiss.addEventListener('click', () => {
+        window.fastyApp.hideAnonSignupCard();
+        try { sessionStorage.setItem('fasty_anon_card_dismissed', '1'); } catch (_) {}
     });
 
     // Sidebar collapse / expand
