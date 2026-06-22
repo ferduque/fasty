@@ -38,6 +38,7 @@ ok(/space/i.test(getCheckpointPrompt({ lang: 'en', isMobile: false })), 'en desk
 for (const lang of ['es', 'en']) {
   const c = getAnonCardCopy({ lang });
   ok(c && c.title && c.body && c.cta && c.dismiss, `${lang}: card has all fields`);
+  ok(/600/.test(c.body), `${lang}: card body mentions the 600 wpm free-account unlock`);
 }
 
 ok(TUTORIAL_WPM === 250, 'TUTORIAL_WPM is 250');

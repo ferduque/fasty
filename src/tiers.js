@@ -8,12 +8,15 @@
 import { getProfile, onAuthChange, currentUser } from './cloud.js';
 
 const CAPS = {
-  free: { maxDocs: 4,   maxSessions: 8,   maxWpm: 450,  urlImportsCap: 3  },
+  // Not signed in: lowest speed cap — registering for a free account raises it.
+  anon: { maxDocs: 4,   maxSessions: 8,   maxWpm: 450,  urlImportsCap: 3  },
+  // Free account: same library limits as anon, but a higher reading speed (600).
+  free: { maxDocs: 4,   maxSessions: 8,   maxWpm: 600,  urlImportsCap: 3  },
   pro:  { maxDocs: 20,  maxSessions: 300, maxWpm: 900,  urlImportsCap: 70 },
 };
 
-let cachedTier = 'free';
-let cachedCaps = CAPS.free;
+let cachedTier = 'anon';
+let cachedCaps = CAPS.anon;
 const listeners = [];
 
 // Tracks the in-flight tier load triggered by the latest auth-change event.
@@ -41,8 +44,8 @@ export function onTierChange(fn) {
 
 async function loadAndFire(user) {
   if (!user) {
-    cachedTier = 'free';
-    cachedCaps = CAPS.free;
+    cachedTier = 'anon';
+    cachedCaps = CAPS.anon;
   } else {
     let loaded = false;
     for (let attempt = 0; attempt < 3 && !loaded; attempt++) {

@@ -34,13 +34,13 @@ const CHECKPOINT = {
 const CARD = {
   es: {
     title: '¿Te ha gustado?',
-    body: 'Crea una cuenta gratis para importar tus propios PDFs y libros, guardar tu biblioteca y competir en la clasificación.',
+    body: 'Crea una cuenta gratis para leer hasta 600 palabras por minuto, importar tus propios PDFs y libros, guardar tu biblioteca y competir en la clasificación.',
     cta: 'Crear cuenta gratis',
     dismiss: 'Ahora no',
   },
   en: {
     title: 'Enjoyed that?',
-    body: 'Create a free account to import your own PDFs & books, save your library, and join the leaderboard.',
+    body: 'Create a free account to read up to 600 words per minute, import your own PDFs & books, save your library, and join the leaderboard.',
     cta: 'Create free account',
     dismiss: 'Not now',
   },
