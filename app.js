@@ -1646,7 +1646,7 @@ class FastyApp {
         });
     }
 
-    /** No-op placeholder until Task 5 adds the real card; safe to call now. */
+    /** Hide the post-read signup card if it's showing. Null-safe. */
     hideAnonSignupCard() {
         const card = document.getElementById('anon-signup-card');
         if (card) card.hidden = true;
