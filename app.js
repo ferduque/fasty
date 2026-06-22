@@ -899,10 +899,11 @@ class FastyApp {
         if (this.currentWordIndex >= paragraphEndIndex) {
             const hasMoreParagraphs = this.currentParagraphIndex < this.paragraphs.length - 1;
 
-            // On mobile, don't stop at paragraph ends — flow into the next
-            // paragraph after a short blank beat so the reader keeps its focus
-            // on the screen and never has to tap mid-document.
-            if (hasMoreParagraphs && this.isMobile && this.isPlaying) {
+            // Don't stop at paragraph ends on either platform — flow into the
+            // next paragraph after a short blank beat so the reader keeps its
+            // focus on the screen and never has to click/tap mid-document.
+            // Only page breaks and end-of-text still stop (they need the UI).
+            if (hasMoreParagraphs && this.isPlaying) {
                 this.autoAdvanceParagraph();
                 return;
             }
@@ -987,11 +988,11 @@ class FastyApp {
     }
 
     /**
-     * Mobile only: flow straight into the next paragraph instead of stopping
-     * and waiting for a tap. Stays in the reading state (chrome faded), blanks
-     * the word for a short paragraph "breath", then resumes the loop. When the
-     * Pause setting is Off the beat is 0, so paragraphs read as one continuous
-     * stream. isPlaying never goes false, so a tap during the beat still pauses.
+     * Flow straight into the next paragraph instead of stopping and waiting for
+     * a click/tap. Stays in the reading state (chrome faded), blanks the word
+     * for a short paragraph "breath", then resumes the loop. When the Pause
+     * setting is Off the beat is 0, so paragraphs read as one continuous stream.
+     * isPlaying never goes false, so a click/tap during the beat still pauses.
      */
     autoAdvanceParagraph() {
         this.clearWordDisplay();
