@@ -10,7 +10,7 @@ import { initViewSwitcher, setView, registerView } from './src/view-switcher.js'
 import { initSelectionReader } from './src/selection-reader.js';
 import { initPasteSessions, saveSession as savePasteSession, onSessionOpened, setActive as setActiveSession, refresh as refreshPasteSessions } from './src/paste-sessions.js';
 import * as cloud from './src/cloud.js';
-import { initAuthUI, lockAuthOpen, unlockAuthClosed } from './src/auth-ui.js';
+import { initAuthUI, unlockAuthClosed } from './src/auth-ui.js';
 import { migrateLocalToCloudIfNeeded } from './src/migration.js';
 import { pullCloudIntoLocal, applyAccountIsolation } from './src/storage.js';
 import { initTiers, onTierChange } from './src/tiers.js';
@@ -513,6 +513,7 @@ class FastyApp {
     // ==================== Text Processing ====================
     
     onTextChange() {
+        this.hideAnonSignupCard();
         if (this.isTutorial) { this.exitTutorial(); }
         // If text changes while we have started, reset
         if (this.hasStarted) {
