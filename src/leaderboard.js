@@ -3,6 +3,7 @@
  * Reads the public `leaderboard_30d` materialized view (refreshed hourly).
  */
 import { loadLeaderboard, getProfile, currentUser } from './cloud.js';
+import { promptSignIn } from './auth-ui.js';
 
 let overlay, body, openBtn, closeBtn;
 let currentScope = 'country';
@@ -15,7 +16,13 @@ export function initLeaderboard() {
   closeBtn = document.getElementById('leaderboard-close');
   if (!overlay || !openBtn) return;
 
-  openBtn.addEventListener('click', open);
+  openBtn.addEventListener('click', () => {
+    if (!currentUser()) {
+      promptSignIn('Create a free account to join the leaderboard and see how you rank.');
+      return;
+    }
+    open();
+  });
   closeBtn.addEventListener('click', close);
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !overlay.hidden) close();
