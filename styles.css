@@ -1460,3 +1460,40 @@ body.auth-required .modal-backdrop {
 /* Reuses the @keyframes tap-hint-pulse defined for mobile (just an
    opacity 0.55 ↔ 1.0 cycle). If renamed, update both. */
 
+/* "Try a sample" button under the paste textarea */
+.try-sample-btn {
+  margin-top: 10px;
+  align-self: center;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+.try-sample-btn:hover { background: var(--bg-tertiary); }
+.try-sample-btn:active { transform: translateY(1px); }
+
+/* Post-read soft signup card */
+.anon-signup-card {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  z-index: 5;
+  width: min(92%, 420px);
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  text-align: center;
+}
+.anon-card-title { margin: 0 0 6px; font-size: 17px; color: var(--text); }
+.anon-card-body  { margin: 0 0 14px; font-size: 14px; color: var(--text-dim); }
+.anon-card-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
