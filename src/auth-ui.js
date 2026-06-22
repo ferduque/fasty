@@ -145,12 +145,28 @@ function buildAuthModal() {
   switchModeLink.addEventListener('click', (e) => { e.preventDefault(); toggleMode(); });
 }
 
-function openModal() {
+function openModal(reason) {
   mode = 'sign-in';
   updateModeUI();
+  // Guard: the chip handler binds `openModal` directly to addEventListener, so
+  // it can receive a click Event as the first arg — only honor a real string.
+  if (typeof reason === 'string' && reason && modeLabel) modeLabel.textContent = reason;
   if (errorEl) { errorEl.hidden = true; errorEl.textContent = ''; }
+  modal.dataset.mode = 'optional';
+  const closeBtn = modal.querySelector('#auth-close');
+  if (closeBtn) closeBtn.style.display = '';
   modal.hidden = false;
   setTimeout(() => emailInput?.focus(), 0);
+}
+
+/**
+ * Open the sign-in modal as a soft, closable prompt with a contextual reason,
+ * e.g. promptSignIn('Create a free account to import your own PDFs.').
+ * Safe to call when auth UI isn't built (no-op).
+ */
+export function promptSignIn(reason) {
+  if (!modal) return;
+  openModal(reason);
 }
 
 function closeModal() {

@@ -52,7 +52,8 @@ export function initUpgradeUI() {
   buyBtn.addEventListener('click', () => {
     const user = currentUser();
     if (!user) {
-      toast('Please sign in to upgrade.', { error: true });
+      import('./auth-ui.js').then(({ promptSignIn }) =>
+        promptSignIn('Create a free account to unlock Fasty Pro.'));
       return;
     }
     const params = new URLSearchParams({

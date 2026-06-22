@@ -10,7 +10,7 @@ import { initViewSwitcher, setView, registerView } from './src/view-switcher.js'
 import { initSelectionReader } from './src/selection-reader.js';
 import { initPasteSessions, saveSession as savePasteSession, onSessionOpened, setActive as setActiveSession, refresh as refreshPasteSessions } from './src/paste-sessions.js';
 import * as cloud from './src/cloud.js';
-import { initAuthUI, lockAuthOpen, unlockAuthClosed } from './src/auth-ui.js';
+import { initAuthUI, unlockAuthClosed } from './src/auth-ui.js';
 import { migrateLocalToCloudIfNeeded } from './src/migration.js';
 import { pullCloudIntoLocal, applyAccountIsolation } from './src/storage.js';
 import { initTiers, onTierChange } from './src/tiers.js';
@@ -19,6 +19,7 @@ import { initLeaderboard } from './src/leaderboard.js';
 import { initUpgradeUI } from './src/upgrade-ui.js';
 import { tokenize, titleUnit, isTitleUnit, titleText } from './src/text-clean.js';
 import { CURRENT_PARSER_VERSION } from './src/doc-model.js';
+import { TUTORIAL_WPM, pickLanguage, getTutorialSegments, getCheckpointPrompt } from './src/tutorial-sample.js';
 
 // How long a chapter "title card" is held at the focal center before body words
 // resume (scaled mildly by title length, clamped to a comfortable beat).
@@ -37,6 +38,10 @@ class FastyApp {
         this.isPaused = false;
         this.hasStarted = false;
         this.wpm = 300;
+        this.isTutorial = false;
+        this.tutorialSegmentIndex = 0;
+        this._tutorialCheckpoint = false;
+        this._tutorialSegments = null;
         this.sentencePause = 200; // ms pause after sentence-ending punctuation
         this.intervalId = null;
         this.sentencePauseTimeoutId = null;
@@ -174,6 +179,7 @@ class FastyApp {
     }
 
     async loadDocument(docId) {
+        this.exitTutorial();
         const { getDocument, getProgress, saveDocument } = await import('./src/storage.js');
         let doc = await getDocument(docId);
         if (!doc) return;
@@ -232,6 +238,7 @@ class FastyApp {
     }
 
     handleReaderClick() {
+        if (this.isTutorial) { this.handleTutorialTap(); return; }
         if (!this.hasStarted) {
             this.startReading();
         } else if (this.isPaused) {
@@ -470,7 +477,7 @@ class FastyApp {
 
         const hasText = this.elements.textInput && this.elements.textInput.value.trim().length > 0;
         const docLoaded = !!this.currentDoc;
-        const textReady = hasText || docLoaded;
+        const textReady = hasText || docLoaded || this.isTutorial;
         const initialState = !this.hasStarted && textReady;
         const atPageBreak = this._currentStatusKey === 'pageBreak';
         const shouldShow = !this.isPlaying && (initialState || atPageBreak);
@@ -506,6 +513,8 @@ class FastyApp {
     // ==================== Text Processing ====================
     
     onTextChange() {
+        this.hideAnonSignupCard();
+        if (this.isTutorial) { this.exitTutorial(); }
         // If text changes while we have started, reset
         if (this.hasStarted) {
             this.reset();
@@ -671,6 +680,7 @@ class FastyApp {
     // ==================== Reading Control ====================
     
     startReading() {
+        this.hideAnonSignupCard();
         const text = this.elements.textInput.value;
 
         if (!text.trim()) {
@@ -692,17 +702,21 @@ class FastyApp {
 
         // Save this pasted text as a session so the user can find it later.
         // If they loaded an existing session and started, we update that one.
-        savePasteSession({ existingId: this._currentSessionId, text })
-            .then(id => {
-                this._currentSessionId = id;
-                setActiveSession(id);
-            })
-            .catch(err => {
-                console.warn('Could not save paste session:', err);
-                import('./src/toasts.js').then(({ toast }) =>
-                    toast(`Couldn't save paste session: ${err?.message || err}`, { error: true })
-                ).catch(() => {});
-            });
+        // Saving a library/session is an account feature. Anonymous + tutorial
+        // reads stay ephemeral (spec: "read-only taste").
+        if (cloud.currentUser() && !this.isTutorial) {
+            savePasteSession({ existingId: this._currentSessionId, text })
+                .then(id => {
+                    this._currentSessionId = id;
+                    setActiveSession(id);
+                })
+                .catch(err => {
+                    console.warn('Could not save paste session:', err);
+                    import('./src/toasts.js').then(({ toast }) =>
+                        toast(`Couldn't save paste session: ${err?.message || err}`, { error: true })
+                    ).catch(() => {});
+                });
+        }
 
         // Start playing
         this.play();
@@ -779,6 +793,7 @@ class FastyApp {
      * leaderboard from their reading).
      */
     async _flushReadingBout() {
+        if (this.isTutorial) { this._bout = null; return; }
         if (!this._bout) return;
         const wordsRead = this.currentWordIndex - this._bout.wordsAtStart;
         const durationSeconds = Math.round((Date.now() - this._bout.startTime) / 1000);
@@ -910,6 +925,11 @@ class FastyApp {
 
             this.pause();
 
+            if (this.isTutorial) {
+                this._onTutorialSegmentEnd();
+                return;
+            }
+
             if (hasMoreParagraphs) {
                 this.showParagraphBreak();
             } else {
@@ -1014,6 +1034,7 @@ class FastyApp {
             this.updateStatus('pageBreak', true);
         } else {
             this.updateStatus('done', true);
+            if (!cloud.currentUser()) this.maybeShowAnonSignupCard();
         }
     }
     
@@ -1084,6 +1105,8 @@ class FastyApp {
 
         if (e.code === 'Space') {
             e.preventDefault();
+
+            if (this.isTutorial) { this.handleTutorialTap(); return; }
 
             if (!this.hasStarted) {
                 this.startReading();
@@ -1185,6 +1208,7 @@ class FastyApp {
      */
     async enterPasteMode({ keepText = false } = {}) {
         this.pause();
+        this.exitTutorial();
         this.currentDoc = null;
         this._inSelectionMode = false;
         this._pageReadContinuation = null;
@@ -1472,6 +1496,7 @@ class FastyApp {
     async startSelectionRead(text, opts = {}) {
         if (!text || !text.trim()) return;
         this.pause();
+        this.exitTutorial();
         this._inSelectionMode = true;
         let tokens = tokenize(text);
         const title = this._isMeaningfulTitle(opts.title)
@@ -1512,6 +1537,121 @@ class FastyApp {
         this.updateProgressBar();
         this.play();
     }
+
+    // ==================== Tutorial mode ====================
+
+    /** Auto-show the tutorial on landing for anonymous users with nothing loaded. */
+    maybeStartTutorial() {
+        if (cloud.currentUser()) return;          // signed-in users keep their app
+        if (this.currentDoc) return;              // a doc is open
+        if (this.hasStarted) return;              // already reading something
+        if (this.elements.textInput && this.elements.textInput.value.trim()) return; // user typed
+        this.startTutorial();
+    }
+
+    /** Load tutorial segment 0 (paused) and pin speed to 250. */
+    startTutorial() {
+        this.pause();
+        this.hideAnonSignupCard();
+        this.isTutorial = true;
+        this.tutorialSegmentIndex = 0;
+        this._tutorialCheckpoint = false;
+        const lang = pickLanguage();
+        this._tutorialSegments = getTutorialSegments({ lang, isMobile: this.isMobile });
+
+        // Pin speed to 250 for the start of the tutorial.
+        if (this.elements.wpmSelect) {
+            this.elements.wpmSelect.value = String(TUTORIAL_WPM);
+            this.wpm = TUTORIAL_WPM;
+        }
+
+        // Make sure we're in paste mode visually, without focusing the textarea
+        // (focusing pops the mobile keyboard).
+        const app = document.querySelector('.app-container');
+        app.classList.remove('mode-doc', 'view-faithful');
+        app.classList.add('mode-paste');
+
+        this._loadTutorialSegment(0);
+        this.hasStarted = false;     // first tap/Space starts playback
+        this.updateStatus('startPrompt');
+        this.updateBigHint();
+    }
+
+    /** Tokenize one segment into the reader as a single paragraph (no autoplay). */
+    _loadTutorialSegment(index) {
+        const text = this._tutorialSegments[index];
+        this.tutorialSegmentIndex = index;
+        this._tutorialCheckpoint = false;
+        this.words = tokenize(text);
+        this.paragraphs = [{ index: 0, text, words: this.words, startWordIndex: 0 }];
+        this.currentWordIndex = 0;
+        this.currentParagraphIndex = 0;
+        this.isPaused = false;
+        this.elements.wordDisplay.classList.add('visible');
+        this.displayCurrentWord();
+        this.updateWordCounter();
+        this.updateProgressBar();
+    }
+
+    /** All tap/click/Space input while in tutorial mode routes here. */
+    handleTutorialTap() {
+        if (this._tutorialCheckpoint) { this._advanceTutorialSegment(); return; }
+        if (!this.hasStarted) { this.hasStarted = true; this.play(); return; }
+        if (this.isPaused) { this.play(); return; }
+        this.pause();
+    }
+
+    /** At a checkpoint: load the next segment and resume at the current WPM. */
+    _advanceTutorialSegment() {
+        this._tutorialCheckpoint = false;
+        this._loadTutorialSegment(this.tutorialSegmentIndex + 1);
+        this.hasStarted = true;
+        this.play();
+    }
+
+    /** Called from advanceWord when a tutorial segment is fully consumed. */
+    _onTutorialSegmentEnd() {
+        const last = this.tutorialSegmentIndex >= this._tutorialSegments.length - 1;
+        if (!last) {
+            this._tutorialCheckpoint = true;
+            this.updateStatus(getCheckpointPrompt({ lang: pickLanguage(), isMobile: this.isMobile }), true);
+        } else {
+            this.isTutorial = false;
+            this._tutorialCheckpoint = false;
+            this.showEndOfText(); // 'done' → also triggers the anon card (added in Task 5)
+        }
+    }
+
+    /** Leave tutorial mode (called when the user does anything "real"). */
+    exitTutorial() {
+        this.isTutorial = false;
+        this.tutorialSegmentIndex = 0;
+        this._tutorialCheckpoint = false;
+        this._tutorialSegments = null;
+        this.hideAnonSignupCard();
+    }
+
+    /** Soft post-read signup card. Once per browser session; anonymous only. */
+    maybeShowAnonSignupCard() {
+        try { if (sessionStorage.getItem('fasty_anon_card_dismissed')) return; } catch (_) {}
+        const card = document.getElementById('anon-signup-card');
+        if (!card) return;
+        const lang = pickLanguage();
+        import('./src/tutorial-sample.js').then(({ getAnonCardCopy }) => {
+            const c = getAnonCardCopy({ lang });
+            document.getElementById('anon-card-title').textContent = c.title;
+            document.getElementById('anon-card-body').textContent = c.body;
+            document.getElementById('anon-card-cta').textContent = c.cta;
+            document.getElementById('anon-card-dismiss').textContent = c.dismiss;
+            card.hidden = false;
+        });
+    }
+
+    /** Hide the post-read signup card if it's showing. Null-safe. */
+    hideAnonSignupCard() {
+        const card = document.getElementById('anon-signup-card');
+        if (card) card.hidden = true;
+    }
 }
 
 // Initialize app when DOM is ready
@@ -1536,8 +1676,8 @@ document.addEventListener('DOMContentLoaded', () => {
     cloud.init().then(async () => {
         await initAuthUI();
         // Apply the initial gate state based on the session loaded by cloud.init().
-        if (cloud.currentUser()) unlockAuthClosed();
-        else lockAuthOpen();
+        unlockAuthClosed();                 // never wall the landing page
+        if (!cloud.currentUser()) window.fastyApp.maybeStartTutorial();
         cloud.onAuthChange(async (user) => {
             try {
                 // Account isolation must run BEFORE migrate + pull so any purge
@@ -1560,7 +1700,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 // Always reconcile the gate + sidebar, even if something above
                 // threw, so the auth modal can never get stuck open/closed.
-                if (user) unlockAuthClosed(); else lockAuthOpen();
+                unlockAuthClosed();          // sign-out returns to anonymous reading, no wall
                 refreshLibrary();
                 refreshPasteSessions();
             }
@@ -1585,6 +1725,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // "+ New paste" → enter paste mode (close any open doc).
     document.getElementById('new-paste').addEventListener('click', () => {
         window.fastyApp.enterPasteMode();
+    });
+
+    const trySampleBtn = document.getElementById('try-sample');
+    if (trySampleBtn) {
+        trySampleBtn.hidden = false;
+        trySampleBtn.addEventListener('click', () => window.fastyApp.startTutorial());
+    }
+
+    const anonCta = document.getElementById('anon-card-cta');
+    const anonDismiss = document.getElementById('anon-card-dismiss');
+    if (anonCta) anonCta.addEventListener('click', async () => {
+        window.fastyApp.hideAnonSignupCard();
+        const { promptSignIn } = await import('./src/auth-ui.js');
+        promptSignIn(pickLanguage() === 'es'
+            ? 'Crea una cuenta gratis para guardar tu biblioteca y competir.'
+            : 'Create a free account to save your library and compete.');
+    });
+    if (anonDismiss) anonDismiss.addEventListener('click', () => {
+        window.fastyApp.hideAnonSignupCard();
+        try { sessionStorage.setItem('fasty_anon_card_dismissed', '1'); } catch (_) {}
     });
 
     // Sidebar collapse / expand

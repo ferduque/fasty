@@ -4,7 +4,8 @@ import { parseUrl } from './parsers/url.js';
 import { parsePdfFile } from './parsers/pdf.js';
 import { parseEpubFile } from './parsers/epub.js';
 import { saveDocument, listDocuments } from './storage.js';
-import { useUrlImport } from './cloud.js';
+import { useUrlImport, currentUser } from './cloud.js';
+import { promptSignIn } from './auth-ui.js';
 import { getCaps } from './tiers.js';
 
 async function isLibraryFull() {
@@ -28,7 +29,13 @@ export function initImportModal() {
   const urlInput = document.getElementById('url-input');
   const urlBtn = document.getElementById('url-import');
 
-  openBtn.addEventListener('click', () => open());
+  openBtn.addEventListener('click', () => {
+    if (!currentUser()) {
+      promptSignIn('Create a free account to import your own PDFs, EPUBs, and articles.');
+      return;
+    }
+    open();
+  });
   closeBtn.addEventListener('click', () => close());
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !backdrop.hidden) close(); });

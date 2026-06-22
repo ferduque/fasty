@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Fasty - Speed Reading</title>
-    <link rel="icon" href="/favicon.ico?v=45" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=45">
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=45">
-    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png?v=45">
-    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png?v=45">
-    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=45">
+    <link rel="icon" href="/favicon.ico?v=47" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=47">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=47">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png?v=47">
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png?v=47">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=47">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=45">
+    <link rel="stylesheet" href="styles.css?v=47">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -164,6 +164,7 @@
             <!-- Paste-mode textarea (visible only in paste mode, when no doc loaded) -->
             <div class="paste-input" id="paste-input">
                 <textarea id="text-input" placeholder="Paste your text here, then press Space to start reading…"></textarea>
+                <button type="button" class="try-sample-btn" id="try-sample" hidden>Try a sample</button>
             </div>
 
             <!-- RSVP display (visible in paste mode during reading; in doc mode during fasty selection) -->
@@ -200,6 +201,16 @@
             <!-- Status message -->
             <div class="status-message" id="status-message">
                 <span class="status-text">Paste text and press Space to start</span>
+            </div>
+
+            <!-- Post-read soft signup card (anonymous users only; populated + toggled in app.js) -->
+            <div class="anon-signup-card" id="anon-signup-card" hidden>
+                <h3 class="anon-card-title" id="anon-card-title"></h3>
+                <p class="anon-card-body" id="anon-card-body"></p>
+                <div class="anon-card-actions">
+                    <button type="button" class="btn-primary" id="anon-card-cta"></button>
+                    <button type="button" class="btn-ghost" id="anon-card-dismiss"></button>
+                </div>
             </div>
 
             <!-- Faithful view container (visible only in doc mode) -->
@@ -307,6 +318,6 @@
         </div>
     </div>
 
-    <script type="module" src="app.js?v=45"></script>
+    <script type="module" src="app.js?v=47"></script>
 </body>
 </html>
